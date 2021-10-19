@@ -58,3 +58,45 @@ ggpairs(data[,nums])
 pm <- ggpairs(
   data[,nums],lower = list(continuous = wrap("smooth", alpha = 0.3, size=0.1)))
 pm
+
+# Grunur um collinearity, skoðum fylki eigingilda
+X <- model.matrix(lm( nuvirdi ~ ., data[,nums]))
+eigenX <- eigen(t(X) %*% X)
+condNumber <- max(eigenX$values)/min(eigenX$values)
+condNumber
+# Risastór ástandstala fyrir fylkið, skoðum eiginvigra með lág eigingildi
+eigenX$values
+# Sjáum að eigingildi 14 og 15 eru pínkulítil (einkum 15)
+eigenX$vectors[, 14]
+eigenX$vectors[, 15]
+# Getum byrjað að skoða vigur 15, þurfum að finna línulega háðar tölur innan þess
+# NP COMPLETE vandamál hér en við getum staðfest grun með því að leggja saman á eftir.
+heatmap(cor(data[,nums]))
+library(gplots)
+heatmap.2(cor(data[,nums])) 
+# Út frá hitakortinu sjáum við að summa þessara dálka er mjög nærri 0.
+# Þeir eru því nokkurn veginn línuleg samantekt hver af öðrum...
+colnames(data[,nums])[c(5,6,9,10,12,13)]
+sum(eigenX$vectors[c(5,6,9,10,12,13), 15])
+sum(eigenX$vectors[,15])
+
+library(reshape2)
+cor(data[,nums]) %>%
+  as_tibble(rownames = 'var') %>%
+  melt() %>% # from reshape2
+  ggplot(aes(x = var, y = variable, fill = value)) +
+  geom_tile() + theme(axis.text.x = element_text(angle = -45, vjust = -0.5, hjust=0.5))
+
+cor(data[,nums])
+# Skoða umbreytingar á y til að fitta gögnin
+library(MASS)
+bcTest <- boxcox(lm( nuvirdi ~ ., data))
+
+indexOfLLPeak <- which.max(bcTest$y)
+lambda <- bcTest$x[indexOfLLPeak]
+lambda
+# Skoða þetta betur þegar við höfum hreinsað gagnasettið dálítið...
+
+# Þá má líka nota BoxCox á sérhverja skýribreytu.
+# 
+
