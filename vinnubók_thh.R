@@ -56,10 +56,5 @@ nums <- unlist(lapply(data, is.numeric))
 ggpairs(data[,nums])
 
 pm <- ggpairs(
-  data[,nums],
-  upper = list(continuous = wrap("density", alpha = 0.5), combo = "box"),
-  lower = list(continuous = wrap("points", alpha = 0.3,    size=0.1), 
-               combo = wrap("dot", alpha = 0.4,            size=0.2) ),
-  title = "Diamonds"
-)
+  data[,nums],lower = list(continuous = wrap("smooth", alpha = 0.3, size=0.1)))
 pm
