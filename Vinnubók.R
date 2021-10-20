@@ -1,5 +1,3 @@
-
-# Þú þarft væntanlega að breyta þessu
 setwd("~/Documents/CS HI/2021-22/HLT/Verkefni 5")
 
 library(tidyverse)
@@ -18,18 +16,16 @@ summary(data)
 str(data)
 
 # Ný breyta sem einfaldar teg_eign í tvo flokka miðað við stærð flokkanna
-# ATH, VISTA Í BREYTU DATA
 data <- data %>% mutate(teg_eign2=ifelse(teg_eign=="Ibudareign", teg_eign, "Sereign"))
 
+# BREYTUM Í FLOKKUNARBREYTUR
 # ATH yfirskrifa eða ekki? Geyma þar til maður er sáttur með breyturnar?
 data[ ,"kdagur"] <- as.Date(data[ ,"kdagur"]) # Kaupdagur sem dagsetning
 data[ ,"teg_eign"] <- as.factor(data[ ,"teg_eign"]) # Tegund eignar sem flokkur
 data[ ,"teg_eign2"] <- as.factor(data[ ,"teg_eign2"]) # Tegund eignar sem flokkur
 data[ ,"svfn"] <- as.factor(data[ ,"svfn"]) # Svæði sem flokkur
-
 # Ath að í verkefni segir að "lyfta" sé binary en í gögnum virðist hún vera fjöldi lyfta.
 data[ ,"lyfta_logical"] <- data[,"lyfta"]>0 # Kannski halda, kannski sleppa
-
 # Kannski hafa stig10 logical 10 eða ekki 10.
 data[ ,"matssvaedi"] <- as.factor(data[ ,"matssvaedi"]) # Staðsetning sem flokkur
 data[ ,"undirmatssvaedi"] <- as.factor(data[ ,"undirmatssvaedi"]) # Undirstaðsetning sem flokkur
@@ -37,41 +33,81 @@ data[ ,"ibteg"] <- as.factor(data[ ,"ibteg"]) # Tegund íbúðar sem flokkur (at
 
 summary(data)
 str(data)
-typeof(data) # afhverju list en ekki data frame?
 
 # Athugum tengsl ibteg og teg_eign
 group_by(data, ibteg, teg_eign) %>% count()
 # Þetta bendir til að gott væri að sleppa ibteg
-data <- subset(data, select = ibteg)
+# data <- subset(data, -select = ibteg)
 
-
+# Skoðum fjölda staka í mismunandi flokkum
 factorNames <- colnames(select(data, where(is.factor)))
-#for (col in factorNames){
-#  group_by(data, col) %>% count()
-#}
-
 data[ , factorNames] %>%
   gather(var, val) %>%
   group_by(var, val) %>% count() %>% view()
 
+# Ástæða til að
 # Droppa svfn, allir punktar eins
-# droppa rfastnum (halda sem ID?)
-# stig10? fer frá 9.7 f 10 og nánast allir í 10
-# Sameina undirmatssvæði eða droppa?
-
-
+# droppa rfastnum, þar sem að við vitum að það er bara ID og inniheldur engar upplýsingar um fasteign
 
 # TRAIN TEST SET
-
 training_size = floor(0.75 * nrow(data))
 trainingSampleRowId <- sample(1:nrow(data), size = training_size, replace = F)
 data_train <- data[trainingSampleRowId, ]
 data_test <- data[-trainingSampleRowId, ]
 
+lm.first = lm(nuvirdi ~ ., data = data_train)
+summary(lm.first)
+summary(residuals(lm.first)^2)
 
-# ggpairs(data)
-# ggpairs(data[ , -which(names(data) %in% c("svfn", "matssvaedi", "undirmatssvaedi"))])
+# Einnig ástæða til að droppa fjeld og fjbilast þar sem þær virðast engin áhrif hafa
+# droppa óþarfa dálkum
+data <- subset(data, select = -c(svfn, rfastnum, fjeld, fjbilast))
 
+# Plottum tölulegarbreytur og tengsl þeirra
+numericNames <- colnames(select(data, where(is.numeric)))
+pm <- ggpairs(
+  data, columns = numericNames, lower = list(continuous = wrap("smooth", alpha = 0.3, size=0.1)))
+pm
+# Ath, er enn þörf á að gera þetta læsilegra eða erum við farnir annað?
 
-# PLOT RESIDUAL Á MÓTI FITTED
+# Einfaldasta módelið, verð sem fall af fermetrum.
+# Gæti verið baseline
+lm.simple <- lm(nuvirdi ~ ibm2, data = data_train)
+summary(lm.simple)
+
+# Skoðum fylgni breyta
+heatmap(cor(data[numericNames])) 
+
+library(reshape2)
+cor(data[numericNames]) %>%
+  as_tibble(rownames = 'var') %>%
+  melt() %>% # from reshape2
+  ggplot(aes(x = var, y = variable, fill = value)) +
+  geom_tile() + theme(axis.text.x = element_text(angle = -45, vjust = -0.5, hjust=0.5))
+
+group_by(data, undirmatssvaedi) %>% count()
+# Einu hóparnir sem fá lágt p-gildi eru 3 og 6 (Ægissíða, Vesturbær NA við Hringbraut) en aðeins 7 og 4 stök falla þar undir
+# Fjölmennustu hóparnir, 21 og 28 (Vesturberg í Breiðholti og Blokkir við Kringlumýrabraut), virðast skipta litlu máli
+# Mér finnst þetta ástæða til að sleppa undirmatssvæðum í heild sinni.
+
+# Athugum stepWise. 
+library(MASS)
+stepWiseLM <- stepAIC(object = lm.first, direction = 'both', trace = T)
+summary(stepWiseLM)
+# Sleppur undirmatssvæði 
+
+# MIKILVÆGAST: PLOT RESIDUAL Á MÓTI FITTED
+fortData <- fortify(lm.first)
+fortData %>%
+  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi)) +
+  geom_jitter(width = 0.25)
+
+fortData %>%
+  ggplot(aes(x = .fitted, y = .resid, color = teg_eign)) +
+  geom_jitter(width = 0.25) 
+
+#fortStep <- fortify(stepWiseLM)
+#fortStep %>%
+#  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi)) +
+#  geom_jitter(width = 0.25)
 
