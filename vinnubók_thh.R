@@ -66,7 +66,7 @@ condNumber <- max(eigenX$values)/min(eigenX$values)
 condNumber
 # Risastór ástandstala fyrir fylkið, skoðum eiginvigra með lág eigingildi
 eigenX$values
-# Sjáum að eigingildi 14 og 15 eru pínkulítil (einkum 15)
+# Sjáum að eigingildi 15 er pínkulítið
 eigenX$vectors[, 14]
 eigenX$vectors[, 15]
 # Getum byrjað að skoða vigur 15, þurfum að finna línulega háðar tölur innan þess
