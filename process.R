@@ -265,12 +265,14 @@ fortData[fortData$rn %in% possible_rejects,] %>%
 # Þetta er því sérstakt tilfelli, þar sem við getum ekkert vitað um þessa gagnapunkta.
 # Við vitum hins vegar að þetta er langverðmætasta eignin í safninu okkar!
 summary(data$nuvirdi)
+hist(data$nuvirdi)
 # Þess vegna er sanngjarnt að taka gagnapunktinn út, þetta er örugglega ráðherrabústaðurinn
 # við Tjarnargötu eða eitthvað. Það er allavega alveg rökfæranlegt að klippa hann út.
 
 # Hinir tveir eru metnir á miklu hærra verð en þeir ættu að vera. Báðir liggja við
 # Ægissíðu og eru metnir á verð sem kemur heim og saman við aðrar eignir þar:
 summary(data[data$matssvaedi == 70,]$nuvirdi)
+hist(data[data$matssvaedi == 70,]$nuvirdi)
 # Aðeins yfir meðallagi í stærð ibm2 en virðast annars vera nokkuð eðlilegar eignir.
 # Hvers vegna er módelið að spá þeim svona hátt? Ég held að það sé ekki réttlætanlegt
 # að klippa þá út úr módelinu, því við ættum ekki að vera spá svona hátt.
@@ -304,35 +306,103 @@ fortData %>% ggplot(aes(x = nuvirdi)) +
 td5$logy <- (td5$nuvirdi^lambda - 1)/lambda
 lm.fifth = lm(logy ~ . -nuvirdi, data = td5)
 summary(lm.fifth)
+
+asd <- residuals(lm.fifth)
+test_asd <- abs(26*asd/99 + 1)^(99/26)
+sqrt(mean(test_asd^2))
+
 adjusted_residuals = residuals(lm.fifth)^2
 adjusted_residuals = (26*adjusted_residuals/99 + 1)^(99/26)
 sqrt(mean(adjusted_residuals))
 
 # Þetta er allt of gott til að vera satt, þurfum að skoða þetta betur....
 
-# Skoðum aftur x-punkta og greinum frávik
-# Skoðum partial residual / partial regression á x-gildum, ef þau eru nógu fá
-# Ófullkomið
+# Skoðum aftur x-punkta og greinum frávik í næsta kafla
 
-X <- model.matrix(lm.fifth)
-partialRegPlots <- list()
-for(i in 2:p) {
-  delIndependentX <- X[, i]
-  delX <- as.data.frame(X[, -c(1, i)])
-  lmDelta <- lm(fortifyp1$PRICE ~ ., data = delX)
-  lmGamma <- lm(delIndependentX ~ ., data = delX)
-  resDelta <- residuals(lmDelta)
-  resGamma <- residuals(lmGamma)
-  betaPartialReg <- summary(lm(resDelta ~ resGamma))$coefficients[2, 1]
-  tibble(x = resGamma,
-         y = resDelta) %>%
+fortLogy = fortify(lm.fifth)
+
+fortLogy$rn <- row.names(fortLogy)
+fortLogy$index <- 1:nrow(fortLogy)
+fortLogy$.jackknife <- rstudent(lm.fifth)
+n5 <- nrow(fortLogy)
+p5 <- nrow(summary(lm.fifth)$coefficients)
+
+beta1 <- summary(lm.fifth)$coefficients[2, 1]
+beta2 <- summary(lm.fifth)$coefficients[3, 1]
+beta3 <- summary(lm.fifth)$coefficients[4, 1]
+beta4 <- summary(lm.fifth)$coefficients[5, 1]
+beta5 <- summary(lm.fifth)$coefficients[6, 1]
+beta6 <- summary(lm.fifth)$coefficients[7, 1]
+beta7 <- summary(lm.fifth)$coefficients[8, 1]
+beta8 <- summary(lm.fifth)$coefficients[9, 1]
+beta9 <- summary(lm.fifth)$coefficients[10, 1]
+beta10 <- summary(lm.fifth)$coefficients[11, 1]
+beta11 <- summary(lm.fifth)$coefficients[12, 1]
+beta12 <- summary(lm.fifth)$coefficients[13, 1]
+beta13 <- summary(lm.fifth)$coefficients[14, 1]
+beta14 <- summary(lm.fifth)$coefficients[15, 1]
+beta15 <- summary(lm.fifth)$coefficients[16, 1]
+beta16 <- summary(lm.fifth)$coefficients[17, 1]
+beta <- c(beta1, beta2, beta3, beta4,beta5, beta6, beta7, beta8,
+          beta9, beta10, beta11, beta12,beta13, beta14, beta15, beta16)
+plots <- list()
+for(i in 1:length(beta)) {
+  regressor <-  model.matrix(lm.fifth)[, (i + 1)]
+  partialRes <- fortLogy$.resid + regressor * beta[i]
+  tibble(x = regressor,
+         y = partialRes) %>%
     ggplot(aes(x = x, y = y)) +
     geom_point() +
-    geom_abline(slope = betaPartialReg, intercept = 0, lty = 2, col = 'blue') +
-    labs(x = TeX('$\\hat{\\gamma}$'), y = TeX('$\\hat{\\delta}$')) +
-    ggtitle(colnames(p1)[i]) -> partialRegPlots[[(i - 1)]]
+    stat_smooth(method = 'lm', se = F) +
+    labs(x = colnames(p1)[i + 1],
+         y = 'Partial residual') -> plots[[i]]
 }
-cowplot::plot_grid(partialRegPlots[[1]], partialRegPlots[[2]], partialRegPlots[[3]])
+cowplot::plot_grid(plots[[1]], plots[[2]], plots[[3]], plots[[4]],
+                   plots[[5]], plots[[6]], plots[[7]], plots[[8]],
+                   plots[[9]], plots[[10]], plots[[11]], plots[[12]],
+                   plots[[13]], plots[[14]], plots[[15]], plots[[16]],
+                   nrow = 4, ncol = 4)
+cowplot::plot_grid(plots[[1]], plots[[5]], plots[[6]], plots[[8]],
+                   nrow = 2, ncol = 2)
+
+# Sjáum smá dæmi um ólínuleika í plotti 8, sem ætti að svara til ibm2.
+# Plottin að ofan svara til kaupdags, byggingarár, hæðarnúmer og fermetrar.
+
+# Við viljum eflaust vinna meira með fermetrabreytuna...
+
+lmOrthoPoly <- lm(td5$logy ~ poly(td5$ibm2, 3))
+summary(lmOrthoPoly)
+
+td6 <- td5
+td6$ibm22 <- td6$ibm2^2
+td6$ibm23 <- td6$ibm2^3
+
+lm.sixth <- lm(logy ~ ., data = td6)
+summary(lm.sixth)
+
+sqrt(mean(residuals(lm.sixth)^2))
+test_data$logy <- (test_data$nuvirdi^lambda - 1)/lambda
+test_data$ibm22 <- test_data$ibm2^2
+test_data$ibm23 <- test_data$ibm2^3
+
+test_resid = (predict(lm.sixth, test_data) - test_data$logy)
+
+adj_test_resid = (26*abs(test_resid)/99 + 1)^(99/26)
+sqrt(mean(adj_test_resid^2))
+
+asd2 <- residuals(lm.sixth)
+test_asd2 <- (26*asd2/99 + 1)^(99/26)
+sqrt(mean(test_asd2^2))
+
+
+resres <- (lambda*asd2 + 1)^(1/lambda)
+sqrt(mean(resres^2))
+
+## Fara yfir það hvernig andhverfa y er fengin, gera það rétt
+## Fara yfir það hvort betra sé að tiltaka poly(td5$ibm2, 3) inní lm eða 
+# bæta við breytum
+## Finna leið til þess að bera RMSE almennilega saman. Þetta er rugl gott núna - overfitting?
+
 
 ## STIG 6: Fitta nýtt líkan og skoða fleiri breytur til að taka út
 
