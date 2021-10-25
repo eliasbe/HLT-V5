@@ -1,5 +1,6 @@
 setwd("~/Documents/CS HI/2021-22/HLT/Verkefni 5")
-
+library(reshape2)
+library(MASS)
 library(tidyverse)
 library(GGally)
 set.seed(11)
@@ -55,13 +56,13 @@ trainingSampleRowId <- sample(1:nrow(data), size = training_size, replace = F)
 data_train <- data[trainingSampleRowId, ]
 data_test <- data[-trainingSampleRowId, ]
 
+# droppa óþarfa dálkum
+data_test <- subset(data_test, select = -c(svfn, rfastnum))
+data_train <- subset(data_train, select = -c(svfn, rfastnum))
+
 lm.first = lm(nuvirdi ~ ., data = data_train)
 summary(lm.first)
 summary(residuals(lm.first)^2)
-
-# Einnig ástæða til að droppa fjeld og fjbilast þar sem þær virðast engin áhrif hafa
-# droppa óþarfa dálkum
-data <- subset(data, select = -c(svfn, rfastnum, fjeld, fjbilast))
 
 # Plottum tölulegarbreytur og tengsl þeirra
 numericNames <- colnames(select(data, where(is.numeric)))
@@ -78,7 +79,7 @@ summary(lm.simple)
 # Skoðum fylgni breyta
 heatmap(cor(data[numericNames])) 
 
-library(reshape2)
+
 cor(data[numericNames]) %>%
   as_tibble(rownames = 'var') %>%
   melt() %>% # from reshape2
@@ -90,8 +91,17 @@ group_by(data, undirmatssvaedi) %>% count()
 # Fjölmennustu hóparnir, 21 og 28 (Vesturberg í Breiðholti og Blokkir við Kringlumýrabraut), virðast skipta litlu máli
 # Mér finnst þetta ástæða til að sleppa undirmatssvæðum í heild sinni.
 
+# Einnig ástæða til að droppa fjeld og fjbilast þar sem þær virðast engin áhrif hafa
+# Ath ibteg og teg_eign2
+
+data_mod_test <- subset(data_test, select = -c(undirmatssvaedi, fjeld, fjbilast, ibteg, teg_eign2))
+data_mod_train <- subset(data_train, select = -c(undirmatssvaedi, fjeld, fjbilast, ibteg, teg_eign2))
+
+lm.dev <- lm(nuvirdi ~ ., data = data_mod_train)
+summary(lm.dev)
+
 # Athugum stepWise. 
-library(MASS)
+
 stepWiseLM <- stepAIC(object = lm.first, direction = 'both', trace = T)
 summary(stepWiseLM)
 # Sleppur undirmatssvæði 
@@ -110,4 +120,5 @@ fortData %>%
 #fortStep %>%
 #  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi)) +
 #  geom_jitter(width = 0.25)
+
 
