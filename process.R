@@ -51,8 +51,9 @@ sqrt(mean(test_resid^2))
 
 # Skoðum einnig annars konar grunnlíkan, sem tekur bara mið af fermetrum:
 # Gæti verið baseline
-lm.simple <- lm(nuvirdi ~ ibm2, data = train)
+lm.simple <- lm(nuvirdi ~ ibm2, data = train_data)
 summary(lm.simple)
+sqrt(mean(residuals(lm.simple)^2))
 
 # Skoðum loks STEPWISE framleitt líkan, sem við notum bara til samanburðar:
 stepWiseLM <- stepAIC(object = lm.first, direction = 'both', trace = T)
@@ -86,7 +87,7 @@ sum(bad_actors[c(1,5)]) - sum(bad_actors[c(2,3,4)])
 td2 = subset( train_data, select = -c(fjherb, fjklos, fjhaed) )
 lm.second = lm(nuvirdi ~ ., data = td2)
 
-# Fáum stærra RMSE en örlítið lægra R^2 adjusted...
+# Fáum stærra RMSE en örlítið hærra R^2 adjusted...
 summary(lm.first)
 summary(lm.second)
 sqrt(mean(residuals(lm.first)^2))
@@ -154,12 +155,8 @@ summary(lm.fourth)
 # MIKILVÆGAST: PLOT RESIDUAL Á MÓTI FITTED
 fortData <- fortify(lm.fourth)
 fortData %>%
-  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi)) +
+  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi, shape = teg_eign)) +
   geom_jitter(width = 0.25)
-
-fortData %>%
-  ggplot(aes(x = .fitted, y = .resid, color = teg_eign)) +
-  geom_jitter(width = 0.25) 
 
 # Ættum að geta séð þetta vel líka með QQ-plotti af leifðinni:
 # Ófullkomið
@@ -175,6 +172,30 @@ fortData %>%
 
 # Greinum nú x-punkta með Mahalanobis/H_ii gildum:
 # Ófullkomið
+
+# Ef fáir x-punktar, þá greina með resid plottum í næsta skrefi
+# Ófullkomið
+
+## STIG 4B: HELDUR LÍNULEIKI? UMBREYTINGAR
+
+# Umbreytum y út frá BoxCox og skoðum lambda gildi
+# Ófullkomið
+
+# Skoðum aftur x-punkta og greinum frávik
+# Skoðum partial residual / partial regression á x-gildum, ef þau eru nógu fá
+# Ófullkomið
+
+## STIG 6: Fitta nýtt líkan og skoða fleiri breytur til að taka út
+
+# Ófullkomið
+
+
+## STIG 7: Fara í ANCOVA greiningu á þeim breytum sem eru eftir inni
+
+# Nota TukeyHSD
+# Ófullkomið
+
+## STIG 8: Fitta lokalíkanið og skrifa allt um það (RMSE, mean etc., R^2, blablabla)
 
 
 
