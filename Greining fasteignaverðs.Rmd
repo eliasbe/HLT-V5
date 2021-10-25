@@ -1,35 +1,56 @@
 ---
 title: "Greining fasteignaverðs"
-author: "Elías Bjartur Einarsson og Þórhallur Auður Helgason"
-date: "10/21/2021"
+author: "Elías Bjartur Einarsson (ebe19) og Þórhallur Auður Helgason (thh14)"
+date: "21/10/2021"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("~/Desktop/H21/Hagnýtt línuleg tölfræðilíkön/Heimadæmi/HLT-V5")
+#setwd("~/Desktop/H21/Hagnýtt línuleg tölfræðilíkön/Heimadæmi/HLT-V5")
+setwd("~/Documents/CS HI/2021-22/HLT/Verkefni 5")
+library(MASS)
 library(tidyverse)
 library(GGally)
 library(gplots)
 library(reshape2)
-library(MASS)
+library(kableExtra)
 set.seed(11)
+
+data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
+sublocations = c(25, 70, 91, 160, 281)
+data = data_big[data_big$matssvaedi == sublocations, ]
+
+# Fjarlægjum breytur sem augljóslega skipta ekki máli:
+data <- subset( data, select = -c(svfn,rfastnum) )
 ```
 
 ## Inngangur
 
+Í þessu verkefni er markmið okkar að skapa líkan sem nálgar fasteignamat ákveðinna svæða Reykjavíkur að gefnum upplýsingum um fasteignir. Við lýsum því hér hvaða skref við tókum í líkanasmíðinni, hvernig við völdum breytur, mátum gæði líkans og bárum saman líkön sem komu til greina. XXvalidate
+
+Gögnin sem unnið var með voru fasteignamat eigna fyrir árið 2017, unnið árið 2016. Einungis var notast við gögn sem vörðuðu fimm svæði innan Reykjavíkur; miðbæ frá Bræðraborgarstíg að Tjörn, Melar að sjó, Háaleiti og skeifan, Hólar og Berg í Breiðholti og loks Réttarholt. Af þessum svæðum voru í heildina 433 fasteignir með 21 breytum auk núvirðis. Breyturnar voru eftirfarandi: Fastanúmer íbúðar, Kaupdagur, Tegund eignar, Svæðisnúmer, Byggingarár, Hæð íbúðar, Fjöldi lyfta, Fermetrafjöldi, Fjöldi hæða, Fjöldi bílastæða, Fjöldi baðkara, Fjöldi sturta, Fjöldi klósetta, Fjöldi eldhúsa, Fjöldi herbergja, Fjöldi stofa, Fjöldi geymsla, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar.
+
+``` {r include=FALSE}
+# Gera fallegar
+tibble("Fastanúmer íbúðar", "Kaupdagur", "Tegund eignar", "Svæðisnúmer", "Byggingarár", "Hæð íbúðar", "Fjöldi lyfta", "Fermetrafjöldi", "Fjöldi hæða", "Fjöldi bílastæða", "Fjöldi Baðkara", "Fjöldi sturta", "Fjöldi klósetta", "Fjöldi eldhúsa", "Fjöldi herbergja", "Fjöldi stofa", "Fjöldi geymsla", "Stig framkvæmdar", "Matssvæði", "Undirmatssvæði", "Tegund íbúðar") %>%
+  kbl(align = 'c') %>%
+  kable_styling()
+```
+
+![Svæði sem skoðuð voru rauðmerkt](./matssvaedi_hofudborg crop.jpg)
+
+
 Tala um gagnasettið, setja kannski inn mynd af svæðinu eða eitthvað, ef við nennum. Tala um markmið, aðferðafræði 
 
-```{r cars}
-summary(cars)
+
+```{r}
+
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
