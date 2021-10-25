@@ -8,6 +8,7 @@ library(tidyverse)
 library(GGally)
 library(knitr)
 library(kableExtra)
+library(FitAR)
 set.seed(11)
 
 data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
@@ -242,7 +243,7 @@ fortData %>%
         axis.ticks.x=element_blank())
 
 theoreticalT <- qt(p = 1 - 0.05/(2 * n), df = n - p - 1)
-suspicious <- c(25036, 23907, 21791, 18612, 34066, 11182, 8494)
+suspicious <- c(25036, 23907, 21791, 18612, 34066, 11182, 8494, 4216)
 fortData %>%
   filter(rn %in% suspicious) %>%
   mutate(highLeverage = .hat > 2*p/n,
@@ -291,7 +292,7 @@ lambda <- bcTest$x[indexOfLLPeak]
 lambda
 # Líklegast nákvæmlega 26/99
 
-fortData$logy <- (fortData$nuvirdi^lambda - 1)/lambda
+fortData$logy <- bxcx(td5$logy, lambda, InverseQ = FALSE, type = "BoxCox")
 
 # Sjáum að logy hegðar sér betur (meira línulega) en venjulega núvirðið:
 # (sameina á eitt plott með facet wrap eða eitthvað)
@@ -301,19 +302,13 @@ fortData %>% ggplot(aes(x = logy)) +
 fortData %>% ggplot(aes(x = nuvirdi)) +
   geom_density()
 
-# Andhverfan er (26*y/99 + 1)^(99/26)
-
-td5$logy <- (td5$nuvirdi^lambda - 1)/lambda
+td5$logy <- bxcx(td5$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
 lm.fifth = lm(logy ~ . -nuvirdi, data = td5)
 summary(lm.fifth)
 
-asd <- residuals(lm.fifth)
-test_asd <- abs(26*asd/99 + 1)^(99/26)
-sqrt(mean(test_asd^2))
 
-adjusted_residuals = residuals(lm.fifth)^2
-adjusted_residuals = (26*adjusted_residuals/99 + 1)^(99/26)
-sqrt(mean(adjusted_residuals))
+asd <- bxcx(residuals(lm.fifth), lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(asd^2))
 
 # Þetta er allt of gott til að vera satt, þurfum að skoða þetta betur....
 
@@ -326,6 +321,12 @@ fortLogy$index <- 1:nrow(fortLogy)
 fortLogy$.jackknife <- rstudent(lm.fifth)
 n5 <- nrow(fortLogy)
 p5 <- nrow(summary(lm.fifth)$coefficients)
+
+betas <- c("(Intercept", "kdagur", "teg_eignIbudareign", "teg_eignParhus", "teg_eignRadhus", 
+           "byggar", "haednr", "lyftaTRUE", "ibm2", "fjbkar", "fjsturt", "fjstof", "fjgeym", 
+           "stig10", "matssvaedi70", "matssvaedi91", "matssvaedi160", "matssvaedi281", 
+           "undirmatssvaedi3", "undirmatssvaedi6", "undirmatssvaedi21", "undirmatssvaedi28", 
+           "undirmatssvaedi40", "undirmatssvaedi48", "undirmatssvaedi54", "id")
 
 beta1 <- summary(lm.fifth)$coefficients[2, 1]
 beta2 <- summary(lm.fifth)$coefficients[3, 1]
@@ -354,7 +355,7 @@ for(i in 1:length(beta)) {
     ggplot(aes(x = x, y = y)) +
     geom_point() +
     stat_smooth(method = 'lm', se = F) +
-    labs(x = colnames(p1)[i + 1],
+    labs(x = betas[i + 1],
          y = 'Partial residual') -> plots[[i]]
 }
 cowplot::plot_grid(plots[[1]], plots[[2]], plots[[3]], plots[[4]],
@@ -370,43 +371,182 @@ cowplot::plot_grid(plots[[1]], plots[[5]], plots[[6]], plots[[8]],
 
 # Við viljum eflaust vinna meira með fermetrabreytuna...
 
-lmOrthoPoly <- lm(td5$logy ~ poly(td5$ibm2, 3))
-summary(lmOrthoPoly)
+lmOrthoPolyIBM2 <- lm(td5$logy ~ poly(td5$ibm2, 3))
+summary(lmOrthoPolyIBM2)
 
-td6 <- td5
+td6 <- subset(td5, select = -c(lyfta, fjsturt))
 td6$ibm22 <- td6$ibm2^2
-td6$ibm23 <- td6$ibm2^3
+# MJÖG significant, prófum samt að velja bara 2. veldi fyrst
 
-lm.sixth <- lm(logy ~ ., data = td6)
+lmOrthoPolyBYGGAR <- lm(td5$logy ~ poly(td5$byggar, 3))
+summary(lmOrthoPolyBYGGAR)
+# Ekki nógu significant, eða hvað?
+
+lm.sixth <- lm(logy ~ . -nuvirdi -id, data = td6)
 summary(lm.sixth)
 
-sqrt(mean(residuals(lm.sixth)^2))
-test_data$logy <- (test_data$nuvirdi^lambda - 1)/lambda
+rev_resid_6 <- bxcx(residuals(lm.sixth), lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_6^2))
+test_data$logy <- bxcx(test_data$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
 test_data$ibm22 <- test_data$ibm2^2
-test_data$ibm23 <- test_data$ibm2^3
 
 test_resid = (predict(lm.sixth, test_data) - test_data$logy)
 
-adj_test_resid = (26*abs(test_resid)/99 + 1)^(99/26)
-sqrt(mean(adj_test_resid^2))
-
-asd2 <- residuals(lm.sixth)
-test_asd2 <- (26*asd2/99 + 1)^(99/26)
-sqrt(mean(test_asd2^2))
-
-
-resres <- (lambda*asd2 + 1)^(1/lambda)
-sqrt(mean(resres^2))
+rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_test^2))
 
 ## Fara yfir það hvernig andhverfa y er fengin, gera það rétt
 ## Fara yfir það hvort betra sé að tiltaka poly(td5$ibm2, 3) inní lm eða 
 # bæta við breytum
 ## Finna leið til þess að bera RMSE almennilega saman. Þetta er rugl gott núna - overfitting?
 
+# STIG 6: AFTUR Í GREININGU:
 
-## STIG 6: Fitta nýtt líkan og skoða fleiri breytur til að taka út
+# Greinum nú x-punkta með Mahalanobis/H_ii gildum:
+# Skoðum matið okkar á y (y.hat) 
 
-# Ófullkomið
+fortNG = fortify(lm.sixth)
+
+fortNG$rn <- row.names(fortNG)
+fortNG$index <- 1:nrow(fortNG)
+fortNG$.jackknife <- rstudent(lm.sixth)
+n6 <- nrow(fortNG)
+p6 <- nrow(summary(lm.sixth)$coefficients)
+
+fortNG %>%
+  ggplot(aes(x = index, y = .hat)) +
+  geom_point() +
+  geom_hline(yintercept = 2*p6/n6, lty = 2, col = 'red') +
+  geom_text(aes(label = ifelse(.hat > 2*p6/n6, rn, '')), hjust = 0.5, vjust = -0.5)
+
+# Þetta er bara rugl að skoða, við þurfum að finna betri leið... Notum töflu:
+
+fortNG %>%
+  filter(.hat > 2*p/n) %>%
+  arrange(desc(.hat)) %>%
+  dplyr::select(rn, .hat) %>%
+  kbl(align = 'c') %>%
+  kable_styling()
+
+# Með því að skoða
+fortNG[fortNG$rn == 10944,]
+# sést að þessum punkti er spáð nákvæmlega rétt gildi og því er hann veigamikill.
+# Hann er sem sagt veigamikill, því hann er að spá þessu svo vel, ætti ekki að skoða
+# frekar. Aðrir gagnapunktar eru innan marka.
+
+# Byrjum á því að greina y-punkta með jackknife og Cook's distance:
+
+fortNG %>%
+  dplyr::select(.jackknife, rn, index) %>%
+  gather(residual, jackknife, -index, -rn) %>%
+  mutate(residual = factor(residual, 
+                           levels = c('.jackknife'))) %>%
+  ggplot(aes(x = index, y = jackknife, , label=rn)) +
+  geom_point(aes(color = ifelse(abs(jackknife)>2, "darkred", "black"))) +
+  geom_text(aes(label=ifelse(abs(jackknife)>2,rn,'')),hjust=0.5,vjust=-0.5) +
+  geom_hline(yintercept = 0, lty = 2, col = 'red') +
+  theme(legend.position="none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_hline(yintercept = 1, lty = 2, col = 'blue') +
+  geom_hline(yintercept = -1, lty = 2, col = 'blue') +
+  geom_hline(yintercept = 2, lty = 2, col = 'red') +
+  geom_hline(yintercept = -2, lty = 2, col = 'red') +
+  geom_hline(yintercept = 3, lty = 2, col = 'green') +
+  geom_hline(yintercept = -3, lty = 2, col = 'green') +
+  geom_hline(yintercept = 0, lty = 2) + expand_limits(x = c(0, 282))
+
+alpha <- 0.05
+tCrit <- qt(p = 1 - alpha/(2 * n), n - p - 1)
+outliers = fortNG$rn[c(which(abs(fortNG$.jackknife) > tCrit))]
+
+fortNG %>%
+  ggplot(aes(x = index, y = .cooksd, label=rn)) +
+  geom_point(aes(color = ifelse(.cooksd>0.1, "darkred", "black"))) +
+  geom_text(aes(label=ifelse(.cooksd>0.1,rn,'')),hjust=-0.1,vjust=0.2) +
+  theme(legend.position="none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+theoreticalT <- qt(p = 1 - 0.05/(2 * n), df = n - p - 1)
+suspicious <- c(34066, 23907, 6099, 4216, 11182, 25074)
+fortNG %>%
+  filter(rn %in% suspicious) %>%
+  mutate(highLeverage = .hat > 2*p/n,
+         outlier = abs(.jackknife) > theoreticalT,
+         influential = .cooksd > 0.15) %>%
+  dplyr::select(rn, highLeverage, outlier, influential) %>%
+  mutate(totalMarks = highLeverage + outlier + influential) %>%
+  kbl(align = 'c') %>%
+  kable_styling()
+
+possible_rejects = c(34066, 23907, 11182, 25074)
+
+fortNG[fortNG$rn %in% possible_rejects,] %>%
+  kbl(align = 'c') %>%
+  kable_styling()
+
+
+hist(td6$logy)
+hist(td6$nuvirdi)
+# Getum skoðað þessa gagnapunkta eitthvað frekar en ég sé ekkert í fljótu bragði að þeim...
+
+summary(data[data$matssvaedi == 70,]$nuvirdi)
+hist(data[data$matssvaedi == 70,]$nuvirdi)
+
+betas2 <- c("(Intercept", "kdagur", "teg_eignIbudareign", "teg_eignParhus", "teg_eignRadhus", 
+           "byggar", "haednr", "ibm2", "fjbkar", "fjstof", "fjgeym", 
+           "stig10", "matssvaedi70", "matssvaedi91", "matssvaedi160", "matssvaedi281", 
+           "undirmatssvaedi3", "undirmatssvaedi6", "undirmatssvaedi21", "undirmatssvaedi28", 
+           "undirmatssvaedi40", "undirmatssvaedi48", "undirmatssvaedi54", "ibm22")
+
+beta1 <- summary(lm.sixth)$coefficients[2, 1]
+beta2 <- summary(lm.sixth)$coefficients[3, 1]
+beta3 <- summary(lm.sixth)$coefficients[4, 1]
+beta4 <- summary(lm.sixth)$coefficients[5, 1]
+beta5 <- summary(lm.sixth)$coefficients[6, 1]
+beta6 <- summary(lm.sixth)$coefficients[7, 1]
+beta7 <- summary(lm.sixth)$coefficients[8, 1]
+beta8 <- summary(lm.sixth)$coefficients[9, 1]
+beta9 <- summary(lm.sixth)$coefficients[10, 1]
+beta10 <- summary(lm.sixth)$coefficients[11, 1]
+beta11 <- summary(lm.sixth)$coefficients[12, 1]
+beta12 <- summary(lm.sixth)$coefficients[13, 1]
+beta13 <- summary(lm.sixth)$coefficients[14, 1]
+beta14 <- summary(lm.sixth)$coefficients[15, 1]
+beta15 <- summary(lm.sixth)$coefficients[16, 1]
+beta16 <- summary(lm.sixth)$coefficients[17, 1]
+beta17 <- summary(lm.sixth)$coefficients[18, 1]
+beta18 <- summary(lm.sixth)$coefficients[19, 1]
+beta19 <- summary(lm.sixth)$coefficients[20, 1]
+beta20 <- summary(lm.sixth)$coefficients[21, 1]
+beta21 <- summary(lm.sixth)$coefficients[22, 1]
+beta22 <- summary(lm.sixth)$coefficients[23, 1]
+beta23 <- summary(lm.sixth)$coefficients[24, 1]
+beta <- c(beta1, beta2, beta3, beta4,beta5, beta6, beta7, beta8,
+          beta9, beta10, beta11, beta12,beta13, beta14, beta15, beta16,
+          beta17, beta18, beta19, beta20, beta21, beta22,beta23)
+plots <- list()
+for(i in 1:length(beta)) {
+  regressor <-  model.matrix(lm.sixth)[, (i + 1)]
+  partialRes <- fortNG$.resid + regressor * beta[i]
+  tibble(x = regressor,
+         y = partialRes) %>%
+    ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    stat_smooth(method = 'lm', se = F) +
+    labs(x = betas2[i + 1],
+         y = 'Partial residual') -> plots[[i]]
+}
+cowplot::plot_grid(plots[[1]], plots[[2]], plots[[3]], plots[[4]],
+                   plots[[5]], plots[[6]], plots[[7]], plots[[8]],
+                   plots[[9]], plots[[10]], plots[[11]], plots[[12]],
+                   plots[[13]], plots[[14]], plots[[15]], plots[[16]], 
+                   plots[[17]], plots[[18]], plots[[19]], plots[[20]], 
+                   plots[[21]], plots[[22]], plots[[23]],
+                   nrow = 6, ncol = 4)
+cowplot::plot_grid(plots[[1]], plots[[5]], plots[[7]], plots[[23]],
+                   nrow = 2, ncol = 2)
 
 
 ## STIG 7: Fara í ANCOVA greiningu á þeim breytum sem eru eftir inni
