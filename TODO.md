@@ -29,13 +29,10 @@
     -   Muna að taka f^-1 af breytunum fyrir skekkju etc.
 6. Partial regression / residuals á X breytur
     - Verður ótrúlega stórt fyrir safnið í núverandi mynd
-    - Er TukeyHSD bara fyrir ANCOVA?
+    - TukeyHSD er bara fyrir ANCOVA.
+    - Er Bonferroni málið fyrir þetta?
 7. Vinnsla með flokkunarfræðilegar breytur:
-    - Þurfum við að þýða nöfnin sjálfir yfir í tölur?
-    - Þarf að vinna sérstaklega með ANCOVA eða hvernig tala þessi tvö saman?
-    - Ef við þurfum að vinna þær aðskilið
-        - hvernig á að láta þau ríma saman?
-        - hvernig fáum við áreiðanlegt mat á skekkjuna, ef þetta er aðskilið?
+    - Bíða með þær þangað til hitt hefur náð sæmilegri nákvæmni
 8. Skrá PRESS, RMSE, R^2, Cp stat fyrir hvert módel
     - plotta muninn fyrir ólíkar breytur
     - prófa að taka út breytur með hátt p-gildi

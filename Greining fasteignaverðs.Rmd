@@ -1,0 +1,35 @@
+---
+title: "Greining fasteignaverðs"
+author: "Elías Bjartur Einarsson og Þórhallur Auður Helgason"
+date: "10/21/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("~/Desktop/H21/Hagnýtt línuleg tölfræðilíkön/Heimadæmi/HLT-V5")
+library(tidyverse)
+library(GGally)
+library(gplots)
+library(reshape2)
+library(MASS)
+set.seed(11)
+```
+
+## Inngangur
+
+Tala um gagnasettið, setja kannski inn mynd af svæðinu eða eitthvað, ef við nennum. Tala um markmið, aðferðafræði 
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

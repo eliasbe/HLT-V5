@@ -6,10 +6,6 @@ library(tidyverse)
 library(GGally)
 set.seed(11)
 
-sizeTraining = floor(0.75 * nrow(savings))
-trainingSampleRowId <- sample(1:nrow(savings), size = sizeTraining, replace = F)
-trainingSavings <- savings[trainingSampleRowId, ]
-testSavings <- savings[-trainingSampleRowId, ]
 
 data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
 
@@ -23,7 +19,7 @@ sublocations = c(25, 70, 91, 160, 281)
 # Við getum klippt út 'svfn' breytuna hér, hún er eins hjá öllum.
 data = data_big[data_big$matssvaedi == sublocations, ]
 # ATH, tökum út SVFN því öll gögn taka sama gildi þar, 0
-data <- subset( data, select = -svfn )
+data <- subset( data, select = -c(svfn,rfastnum) )
 
 data[ ,"kdagur"] <- as.Date(data[ ,"kdagur"]) # Kaupdagur sem dagsetning
 data[ ,"teg_eign"] <- as.factor(data[ ,"teg_eign"]) # Tegund eignar sem flokkur
@@ -49,15 +45,13 @@ group_by(data, ibteg, teg_eign) %>% count()
 #data <- subset(data, select = -ibteg)
 
 lm.first = lm(nuvirdi ~ ., data = train_data)
+sqrt(mean(residuals(lm.first)^2))
 summary(lm.first)
-summary(residuals(lm.first)^2)
+
+test_resid = (predict(lm.first, test_data) - test_data$nuvirdi)
+sqrt(mean(test_resid^2))
 
 nums <- unlist(lapply(data, is.numeric))  
-ggpairs(data[,nums])
-
-pm <- ggpairs(
-  data[,nums],lower = list(continuous = wrap("smooth", alpha = 0.3, size=0.1)))
-pm
 
 # Grunur um collinearity, skoðum fylki eigingilda
 X <- model.matrix(lm( nuvirdi ~ ., data[,nums]))
@@ -66,9 +60,8 @@ condNumber <- max(eigenX$values)/min(eigenX$values)
 condNumber
 # Risastór ástandstala fyrir fylkið, skoðum eiginvigra með lág eigingildi
 eigenX$values
-# Sjáum að eigingildi 15 er pínkulítið
+# Sjáum að eigingildi 14 er pínkulítið
 eigenX$vectors[, 14]
-eigenX$vectors[, 15]
 # Getum byrjað að skoða vigur 15, þurfum að finna línulega háðar tölur innan þess
 # NP COMPLETE vandamál hér en við getum staðfest grun með því að leggja saman á eftir.
 heatmap(cor(data[,nums]))
@@ -76,9 +69,15 @@ library(gplots)
 heatmap.2(cor(data[,nums])) 
 # Út frá hitakortinu sjáum við að summa þessara dálka er mjög nærri 0.
 # Þeir eru því nokkurn veginn línuleg samantekt hver af öðrum...
-colnames(data[,nums])[c(5,6,9,10,12,13)]
-sum(eigenX$vectors[c(5,6,9,10,12,13), 15])
-sum(eigenX$vectors[,15])
+colnames(data[,nums])[c(4, 5, 9, 11, 12)]
+sum(eigenX$vectors[c(4, 5, 9, 11, 12), 14])
+sum(eigenX$vectors[,14])
+plot(eigenX$vectors[c(4, 5, 9, 11, 12),14])
+bad_actors <- eigenX$vectors[c(4, 5, 9, 11, 12), 14]
+sum(bad_actors[c(1,5)]) - sum(bad_actors[c(2,3,4)])
+# Þessi eigingildi eru svo gott sem línulega háð innbyrðis.
+# Það er réttlætanlegt að velja annað hvort
+#   "ibm2" "fjstof" inni og "fjherb" "fjhaed" "fjklos" úti
 
 library(reshape2)
 cor(data[,nums]) %>%
@@ -88,8 +87,28 @@ cor(data[,nums]) %>%
   geom_tile() + theme(axis.text.x = element_text(angle = -45, vjust = -0.5, hjust=0.5))
 
 cor(data[,nums])
-# Skoða umbreytingar á y til að fitta gögnin
+
+# Einfaldasta módelið, verð sem fall af fermetrum.
+# Gæti verið baseline
+lm.simple <- lm(nuvirdi ~ ibm2, data = train)
+summary(lm.simple)
+
+# MIKILVÆGAST: PLOT RESIDUAL Á MÓTI FITTED
+fortData <- fortify(lm.first)
+fortData %>%
+  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi)) +
+  geom_jitter(width = 0.25)
+
+fortData %>%
+  ggplot(aes(x = .fitted, y = .resid, color = teg_eign)) +
+  geom_jitter(width = 0.25) 
+
+# Athugum stepWise. 
 library(MASS)
+stepWiseLM <- stepAIC(object = lm.first, direction = 'both', trace = T)
+summary(stepWiseLM)
+
+# Skoða umbreytingar á y til að fitta gögnin
 bcTest <- boxcox(lm( nuvirdi ~ ., data))
 
 indexOfLLPeak <- which.max(bcTest$y)
