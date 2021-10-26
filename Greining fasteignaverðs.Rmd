@@ -1,5 +1,5 @@
 ---
-title: "Greining fasteignaverðs"
+title: "Greining fasteignamats"
 author: "Elías Bjartur Einarsson (ebe19) og Þórhallur Auður Helgason (thh114)"
 date: "21/10/2021"
 output: pdf_document
@@ -15,37 +15,39 @@ library(GGally)
 library(gplots)
 library(reshape2)
 library(kableExtra)
+library(gtsummary)
+library(knitr)
 set.seed(11)
 
 data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
 data_big$id <- 1:nrow(data_big)
 sublocations = c(25, 70, 91, 160, 281)
 data = data_big[data_big$matssvaedi == sublocations, ]
+
+inline_hook <- function(x){
+  
+  if(is.numeric(x)){
+    formatted <- format(x, digits=2, nsmall = 2)
+  } else{
+    formatted <- x
+  }
+  paste0("**", formatted, "**")
+}
+knit_hooks$set(inline=inline_hook)
+
 ```
 
 ## Inngangur
 
-Í þessu verkefni er markmið okkar að skapa líkan sem nálgar fasteignamat ákveðinna svæða Reykjavíkur að gefnum upplýsingum um fasteignir. Við lýsum því hér hvaða skref við tókum í líkanasmíðinni, hvernig við völdum breytur, mátum gæði líkans og bárum saman líkön sem komu til greina. XXvalidate
+Í þessu verkefni er markmið okkar að skapa líkan sem nálgar fasteignamat eigna á ákveðnum svæðum Reykjavíkur að gefnum upplýsingum um viðeigandi fasteignir. Við lýsum því hér hvaða skref við tókum í líkanasmíðinni, hvernig við völdum og höfnuðum breytum, mátum gæði líkana og bárum saman þau líkön sem komu til greina.
 
-Gögnin sem unnið var með voru fasteignamat eigna fyrir árið 2017, unnið árið 2016. Einungis var notast við gagnapunkta af fimm svæðum innan Reykjavíkur sem sjá má á korti hér að neðan; miðbæ frá Bræðraborgarstíg að Tjörn, Melar að sjó, Háaleiti og skeifan, Hólar og Berg í Breiðholti og loks Réttarholt. Á þessum svæðum voru í heildina 433 fasteignir með 21 breytum auk núvirðis. Breyturnar voru eftirfarandi: Fastanúmer íbúðar, Kaupdagur, Tegund eignar, Svæðisnúmer, Byggingarár, Hæð íbúðar, Fjöldi lyfta, Fermetrafjöldi, Fjöldi hæða, Fjöldi bílastæða, Fjöldi baðkara, Fjöldi sturta, Fjöldi klósetta, Fjöldi eldhúsa, Fjöldi herbergja, Fjöldi stofa, Fjöldi geymsla, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar.
+Gögnin sem unnið var með voru fasteignamöt eigna fyrir árið 2017, unnin árið áður. Einungis var notast við gagnapunkta af fimm svæðum innan Reykjavíkur sem sjá má á korti hér að neðan; miðbær frá Bræðraborgarstíg að Tjörn, Melar að sjó, Háaleiti og skeifan, Hólar og Berg í Breiðholti og loks Réttarholtið. Á þessum svæðum voru í heildina 433 fasteignir með 21 breytum auk núvirðis, óháðu breytunnar. Skýribreyturnar voru eftirfarandi: Fastanúmer íbúðar, Kaupdagur, Tegund eignar, Svæðisnúmer, Byggingarár, Hæð íbúðar, Fjöldi lyfta, Fermetrafjöldi, Fjöldi hæða, Fjöldi bílastæða, Fjöldi baðkara, Fjöldi sturta, Fjöldi klósetta, Fjöldi eldhúsa, Fjöldi herbergja, Fjöldi stofa, Fjöldi geymsla, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar. Þær breytur sem ekki segja sig sjálfar eru; Tegund eignar, Svæðisnúmer, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar. Tegund eignar skiptist í fjóra flokka; Einbýlishús, parhús, íbúð og raðhús. Tegund íbúðar aðgreinir sérbýlishús frá fjölbýlishúsum, svæðisnúmer er auðkenni sveitarfélags og stig framkvæmdar er skali frá 0 upp í 10 sem metur hvort húsnæðið sé tilbúið. Matssvæði eru hverfin sem sjást á myndinni hér að neðan og undirmatssvæði eru ákveðin svæði innan þeirra.
 
-Þær breytur sem ekki segja sig sjálfar eru; Tegund eignar, Svæðisnúmer, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar. Tegund eignar skiptist í fjóra flokka; Einbýlishús, parhús, íbúð og raðhús. Tegund íbúðar aðgreinir sérbýlishús frá fjölbýlishúsum. Svæðisnúmer er auðkenni sveitarfélags. Stig framkvæmdar er skali upp á 10 sem metur hvort húsnæðið sé tilbúið. Matssvæði eru hverfin sem sjást á myndinni hér að neðan og undirmatssvæði eru ákveðin svæði innan þeirra.
+![Svæði sem skoðuð voru eru rauðmerkt og nr. 70, 25, 91, 281 og 160.](./matssvaedi_hofudborg crop.jpg){width=50%}
 
-``` {r include=FALSE}
-# Gera fallegar
-tibble("Fastanúmer íbúðar", "Kaupdagur", "Tegund eignar", "Svæðisnúmer", "Byggingarár", "Hæð íbúðar", "Fjöldi lyfta", "Fermetrafjöldi", "Fjöldi hæða", "Fjöldi bílastæða", "Fjöldi Baðkara", "Fjöldi sturta", "Fjöldi klósetta", "Fjöldi eldhúsa", "Fjöldi herbergja", "Fjöldi stofa", "Fjöldi geymsla", "Stig framkvæmdar", "Matssvæði", "Undirmatssvæði", "Tegund íbúðar") %>%
-  kbl(align = 'c') %>%
-  kable_styling()
-```
+Til að byrja með skoðuðum við gögnin, meðaltöl breyta, kvantíla og há- og lággildi ásamt því að umbreyta þeim yfir á rétt snið, svo sem kaupdegi yfir á dagsetningaform og flokkunarbreytum yfir í flokka. Einnig athugum við hvort einhver auð gildi eru til staðar. Við fjarlægjum strax fastanúmer sem breytu þar sem hún er einungis auðkenni fasteignar og inniheldur ekki upplýsingar um hana. Sömuleiðis fjarlægjum við svæðisnúmerið þar sem allar breyturnar deila svæðisnúmeri Reykjavíkur og það veitir þar með engar upplýsingar um gagnapunktana.
 
-![Svæði sem skoðuð voru eru rauðmerkt og nr. 70, 25, 91, 281 og 160.](./matssvaedi_hofudborg crop.jpg)
-
-Til að byrja með skoðuðum við gögnin, meðaltöl, há- og lággildi ásamt því að umbreyta þeim yfir á rétt snið, svo sem kaupdegi yfir á dagsetningaform og flokkunarbreytum yfir å viðeigandi form. 
-
-Við fjarlægjum strax fastanúmer sem breytu þar sem hún er einungis auðkenni fasteignar og inniheldur ekki upplýsingar um hana. Sömuleiðis fjarlægjum við svæðisnúmerið þar sem allar breyturnar deila svæðisnúmeri Reykjavíkur og veitir þar með engar upplýsingar um gagnapunktana.
-
-
-```{r}
+```{r message = FALSE}
 # Fjarlægjum breytur sem augljóslega skipta ekki máli:
 data <- subset( data, select = -c(svfn,rfastnum) )
 
@@ -62,25 +64,34 @@ data[ ,"matssvaedi"] <- as.factor(data[ ,"matssvaedi"]) # Staðsetning sem flokk
 data[ ,"undirmatssvaedi"] <- as.factor(data[ ,"undirmatssvaedi"]) # Undirstaðsetning sem flokkur
 data[ ,"ibteg"] <- as.factor(data[ ,"ibteg"]) # Tegund íbúðar sem flokkur
 
-#nums <- unlist(lapply(data, is.numeric)) 
-numericNames <- colnames(dplyr::select(data, where(is.numeric)))
-summary(data[numericNames]) %>%
-  kbl(align = 'c', col.names = c("Núvirdi",	"Byggingarár",	"Nr. hæðar",	"Fjöldi lyfta",	"Fermetrafjöldi",	"Fjöldi hæða",	"Fjöldi bílastæða",	"Fjöldi baðkara",	"Fjöldi sturta",	"Fjöldi klósetta",	"Fjöldi eldhúsa",	"Fjöldi herbergja",	"Fjöldi stofa",	"Fjöldi geymsla",	"Stig framkvæmdar", "ID"), row.names = T) %>% #c("Min", "1.Qt", "Median", "3.Qt", "Max")
-  kable_styling()
+summary(data)
+```
+
+```{r include = FALSE}
+numericNames <- colnames(dplyr::select(data, where(is.numeric)))[1:15]
+#summary(data[numericNames]) %>%
+#  kbl(align = 'c', col.names = c("Núvirdi",	"Byggingarár",	"Nr. hæðar",	"Fjöldi lyfta",	#"Fermetrafjöldi",	"Fjöldi hæða",	"Fjöldi bílastæða",	"Fjöldi baðkara",	"Fjöldi sturta",	"Fjöldi #klósetta",	"Fjöldi eldhúsa",	"Fjöldi herbergja",	"Fjöldi stofa",	"Fjöldi geymsla",	"Stig framkvæmdar", "ID"), row.names = T) %>% #c("Min", "1.Qt", "Median", "3.Qt", "Max")
+#  kable_styling()
 
 
-# library(table1)
-# table1::table1(~., data[numericNames])
+#library(table1)
+#table1::table1(~., data[numericNames])
 # Þessi er flottari en það vantar kvantíla
+#library("psych")
+#describe(data[numericNames])
+
+#tbl_summary(data, include = -id, label = c(kdagur = "Kaupdagur", teg_eign = "Eignartegund", matssvaedi = "Matssvæði", undirmatssvaetdi = #"Undirmatssvæði", nuvirdi = "Núvirdi",	byggar = "Byggingarár",	haednr = "Nr. hæðar", lyfta =	"Fjöldi lyfta",	ibm2 = "Fermetrafjöldi",	#fjhaed = "Fjöldi hæða", fjbilast = "Fjöldi bílastæða",	fjbkar = "Fjöldi baðkara",	fjsturt = "Fjöldi sturta",	fjklos = "Fjöldi #klósetta", fjeld =	"Fjöldi eldhúsa",	fjherb = "Fjöldi herbergja",	fjstof = "Fjöldi stofa",	fjgeym = "Fjöldi geymsla",	stig10 ="Stig #framkvæmdar")) %>% modify_header(update = list(
+#  label ~ '**Einkenni**',
+#  stat_0 ~ '**N = 433**'
+#)) %>% modify_footnote(update = list(
+#  label ~ 'Bil, miðgildi, fjöldahlutfall'
+#))
   
 ```
 
-
-
-
 Við skiptum gagnasafninu okkar í þjálfunar- og prófunarsafn með 75% gagnapunkta í því fyrrnefnda og fjórðung í því síðarnefnda.
 
-## Fyrsta líkan
+## 1. Fyrsta líkan
 
 Að svo stöddu erum við tilbúnir að máta fyrsta líkanið okkar og greina það. Í fyrstu mátum við núvirði við allar þær breytur sem eftir standa.
 
@@ -92,65 +103,59 @@ train_data <- data[trainingSampleRowId, ]
 test_data <- data[-trainingSampleRowId, ]
 
 # Fittum fyrsta líkan, án nokkurrar vinnslu:
-lm.first = lm(nuvirdi ~ ., data = train_data)
+lm.first = lm(nuvirdi ~ . -id, data = train_data)
 s.first = summary(lm.first)
 ```
-
-Þessi fyrsta tilraun til að máta gögnin sýnir okkur við hverju má búast, hvaða breytur spila ekki lykilhlutverk og 
-
-Þetta líkan fær `r sqrt(mean(residuals(lm.first)^2))` í RMSE og `r s.first$adj.r.squared` í aðlagað $R^2$. 
 
 ``` {r include = FALSE}
 test_resid = (predict(lm.first, test_data) - test_data$nuvirdi)
 ```
-Er við skoðum spágildi líkansins út frá prófunargagnasetti fæst `r sqrt(mean(test_resid^2))` í RMSE.
+Þessi fyrsta tilraun til að máta gögnin gefur okkur líkan til að miða við héðan af, það er bara upp á við eftir þetta. Þetta líkan fær `r sqrt(mean(residuals(lm.first)^2))` í RMSE og `r s.first$adj.r.squared` í aðlagað $R^2$. Er við skoðum spágildi líkansins út frá prófunargagnasetti fæst `r sqrt(mean(test_resid^2))` í RMSE. Skoðum til viðbótar annað grunnlíkan sem mátar núvirði eingöngu við fermetraverð. Þetta líkan mætti hugsa sem grunnviðmið parsímóníunnar.
 
-Skoðum til viðbótar annað grunnlíkan sem mátar núvirði eingöngu við fermetraverð. Þetta líkan mætti hugsa sem grunnviðmið parsímóníunnar.
-
-``` {r}
-# Skoðum einnig annars konar grunnlíkan, sem tekur bara mið af fermetrum:
+``` {r} 
 lm.simple <- lm(nuvirdi ~ ibm2, data = train_data)
 s.simple <- summary(lm.simple)
-sqrt(mean(residuals(lm.simple)^2))
 ``` 
-
-Við sjáum að það fær hærra RMSE en fyrsta líkanið okkar. 
 
 ``` {r include = FALSE}
 test_resid_simple = (predict(lm.simple, test_data) - test_data$nuvirdi)
 ```
-Þetta einfalda líkan fær `r sqrt(mean(test_resid_simple^2))` í RMSE á prófunarsetti, lægra en á þjálfunarsafni en hvort tveggja mjög hátt.
+Við sjáum að það fær hærra RMSE en fyrsta líkanið okkar líkt og búast má við. Þetta einfalda líkan fær `r sqrt(mean(residuals(lm.simple)^2))` í RMSE á þjálfunarsetti og `r sqrt(mean(test_resid_simple^2))` í RMSE á prófunarsetti, hvort tveggja mjög hátt.
 
-## Hvað við tökum út og hvers vegna
+## 2. Fækkun breyta
 
-Byrjum á að breyta breytunni fjölda lyfta í tvíundarbreytu sem segir til um hvort það sé lyfta eður ei. Skoðum svo hvaða breytur eru línulega háðar og mega missa sín.
-```{r}
-
-# Flestar fasteignir hafa ekki lyftu og örfáar hafa fleiri en eina. Við ákváðum að breyta þeirri breytu í tvíundarbreytu, lyfta eður ei, satt eða ósatt.
+Byrjum á að breyta fjölda lyfta í tvíundarbreytu sem segir til um hvort það sé lyfta eður ei. Skoðum svo hvaða breytur eru línulega háðar og mega missa sín.
+```{r out.width = "70%", fig.align = "center"}
 data[ ,"lyfta"] <- data[,"lyfta"]>0
 
 # Skoðum breytur sem eru of líkar, multiple collinearity:
 library(gplots)
-heatmap.2(cor(data[numericNames])) 
-# Sjáum cluster af hópum sem eru mjög líkir. Skoðum eigingildi:
+heatmap.2(cor(data[numericNames]))
+```
+
+Við sjáum þyrpingu sem sýnir mikil líkindi og skoðum eigingildin
+
+```{r}
 X <- model.matrix(lm(nuvirdi ~ ., data[numericNames]))
 eigenX <- eigen(t(X) %*% X)
 condNumber <- max(eigenX$values)/min(eigenX$values)
 condNumber
 ``` 
 
-Hér sést að það eru hópur af breytum sem sýna mikla fylgni hvor við aðra og við skoðun á eiginfylkjum XX sést að ástandstalan fyrir fylkið er gríðarhá og greinilegt að eitthvað sé á seyði hér. Við skoðum því eiginvigra með sérlega lág eigingildi.
+Hér sést að þessi hópur af breytum sem sýna mikla fylgni hvor við aðra eru fermetrar, fjöldi herbergja, núvirði (óháða breytan okkar), fjöldi klósetta, fjöldi hæði og fjöldi stofa. Við skoðun á breytufylkinu sést að ástandstalan er gríðarhá og greinilegt að eitthvað sé á seyði hér. Við skoðum því þá eiginvigra með sérlega lág eigingildi.
 
 
 ``` {r}
 eigenX$values
-# Sjáum að eigingildi 14 er pínkulítið
-eigenX$vectors[, 14]
-colnames(data[numericNames])[c(4, 5, 9, 11, 12)]
-sum(eigenX$vectors[c(4, 5, 9, 11, 12), 14])
-sum(eigenX$vectors[,14])
-plot(eigenX$vectors[c(4, 5, 9, 11, 12),14])
-bad_actors <- eigenX$vectors[c(4, 5, 9, 11, 12), 14]
+```
+Við sjáum að eigingildi 15 er pínkulítið, skoðum það betur.
+```{r}
+tiny <- eigenX$vectors[, 15]
+# colnames(data[numericNames])[c(5, 6, 10, 12, 13)]
+# sum(tiny[c(5, 6, 10, 12, 13)])
+# sum(tiny)
+# plot(tiny[c(5, 6, 10, 12, 13)])
+bad_actors <- tiny[c(5, 6, 10, 12, 13)]
 sum(bad_actors[c(1,5)]) - sum(bad_actors[c(2,3,4)])
 ```
 
@@ -168,9 +173,9 @@ s.second <- summary(lm.second)
 
 Athugum svo að breyturnar fyrir fjölda eldhúsa og fjölda bílastæða taka nánast sömu gildi í öllum gagnapunktum. Þar að auki eru þær með mjög há p-gildi og við metum það svo að þær megi báðar fjúka. Við það breytist RMSE lítið sem ekkert en aðlagað $R^2$ hækkar.
 
-``` {r}
-barplot(table(data$fjeld))
-barplot(table(data$fjbilast))
+``` {r out.width = "40%", fig.align = "center", echo = FALSE}
+barplot(table(data$fjeld), main = "Fjöldi eldhúsa")
+barplot(table(data$fjbilast), main = "Fjöldi bílastæða")
 ```
 
 ``` {r include = FALSE}
@@ -181,11 +186,9 @@ s.third <- summary(lm.third)
 ```
 
 
-## STIG 3: GAGNAÚRVINNSLA, MINNA AUGLJÓSIR FLOKKAR FJARLÆGÐIR
+## 3. Ítarlegri gagnaúrvinnsla
 
-Athugum nú aðrar breytur þar sem ástæður til að fjarlægja þær blasa ekki jafnvel við.
-
-Við sjáum að tegund eignar og íbúðartegund kóða fyrir mjög svipuðum eiginleikum fasteignar og að parhúsarflokkurinn er sá eini í tegund eignar sem mælist með almennilega svörun, mögulega að undanskildum einbýlishúsaflokknum sem er grunnflokkurinn. Þó eru einungis 6 gagnapunktar í parhúsaflokknum og því mögulega ástæða til að fella tegund eignar inn í íbúðartegund. Skoðum hvernig gögnin liggja í þeim flokkum.
+Athugum nú aðrar breytur þar sem ástæður til að fjarlægja þær blasa ekki jafnvel við. Við sjáum að tegund eignar og íbúðartegund kóða fyrir mjög svipuðum eiginleikum fasteignar og að parhúsarflokkurinn er sá eini í tegund eignar sem mælist með almennilega svörun, mögulega að undanskildum einbýlishúsaflokknum sem er grunnflokkurinn. Þó eru einungis 6 gagnapunktar í parhúsaflokknum og því mögulega ástæða til að fella tegund eignar inn í íbúðartegund. Skoðum hvernig gögnin liggja í þeim flokkum.
 
 ``` {r}
 group_by(data, Íbuðartegund = ibteg, Eignartegund = teg_eign) %>% 
@@ -193,9 +196,7 @@ group_by(data, Íbuðartegund = ibteg, Eignartegund = teg_eign) %>%
   kbl() %>%
   kable_styling()
 ```
-Hér sést að allar íbúðartegundir nr. 12 eru eignartegundin Íbúðareign. Þó eru nokkrar íbúðareignir sem falla í flokk 11 ásamt öllum hinum tegundum.
-
-Eftir samanburð á líkönum sem tóku annars vegar íbúðartegund og eignartegund út þá var það metið svo að betra væri að taka íbúðartegund út. RMSE lækkar og $R^2$ hækkar, alveg eins og við viljum. 
+Hér sést að allar íbúðartegundir nr. 12 eru eignartegundin Íbúðareign. Þó eru nokkrar íbúðareignir sem falla í flokk 11 ásamt öllum hinum tegundum. Eftir samanburð á líkönum sem tóku annars vegar íbúðartegund og eignartegund út þá var það metið svo að betra væri að taka íbúðartegund út. RMSE lækkar og $R^2$ hækkar, alveg eins og við viljum. 
 
 ``` {r include = FALSE}
 td4 = subset( td3, select = -c(ibteg))
@@ -213,25 +214,24 @@ group_by(data, undirmatssvaedi) %>%
   kable_styling()
 ```
 
-Hér sést að langflestir punktarnir falla í undirmatssvæði 0 og að flestir flokkar innihalda einungis örfáar fasteignir.
-Einu flokkarnir sem fá lágt p-gildi eru 3 og 6, sem eru Ægissíða og Vesturbær NA við Hringbraut, 
-en einungis 7 og 4 stök falla þar undir. þar að auki virðast fjölmennustu flokkarnir, nr. 21 og 28 - Vesturberg í Breiðholti og Blokkir við Kringlumýra- og Miklubraut -,  skipta litlu máli. Á hinn bóginn þá innihalda undirmatssvæði í eðli sínu færri punkta en matssvæðin og væntanlega valin af góðum ástæðum. Það er eitt að búa í Vesturbænum en annað að búa á Ægissíðunni með útsýni yfir hafið. Af þessum ástæðum ákváðum við að halda í þessar breytu örlítið lengur og sjá hvernig henni vegnar í síðari greiningu á líkönunum.
+Hér sést að langflestir punktarnir falla í undirmatssvæði 0 og að flestir flokkar innihalda einungis örfáar fasteignir. Einu flokkarnir sem fá lágt p-gildi eru 3 og 6, sem eru Ægissíða og Vesturbær NA við Hringbraut, en einungis 7 og 4 stök falla þar undir. þar að auki virðast fjölmennustu flokkarnir, nr. 21 og 28 (Vesturberg í Breiðholti og Blokkir við Kringlumýra- og Miklubraut),  skipta litlu máli. Á hinn bóginn þá innihalda undirmatssvæði í eðli sínu færri punkta en matssvæðin og væntanlega valin af góðum ástæðum. Það er eitt að búa í Vesturbænum en annað að búa á Ægissíðunni með útsýni yfir hafið. Af þessum ástæðum ákváðum við að halda í þessa breytu örlítið lengur og sjá hvernig henni vegnar í síðari greiningu á líkönunum.
 
-Síðar kom í ljós, eftir að veigamiklir punktar voru skoðaðir, að punktur 10944 var óeðlilega áhrifamikill sökum þess að eini breytileikinn í framkvæmdarstigsbreytunni kom frá honum. Allir punktar höfðu gildi 10 í þeirri breytu nema þessi eini. Af þeim völdum fjarlægðum við þá breytu úr líkaninu. 
+Síðar kom í ljós, eftir að veigamiklir punktar voru skoðaðir, að punktur 10944 var óeðlilega áhrifamikill og var það sökum þess að eini breytileikinn í framkvæmdarstigsbreytunni kom frá honum. Allir punktar höfðu gildi 10 í þeirri breytu nema þessi eini. Af þeim völdum fjarlægðum við þá breytu úr líkaninu. Þetta hefði mátt gerast fyrr í ferlinu.
 
-``` {r}
+``` {r out.width = "40%", fig.align = "center", echo = FALSE}
 barplot(table(data$stig10))
 
 td5 = subset(td4, select = -stig10 )
 lm.fifth = lm(nuvirdi ~ ., data = td5)
-sqrt(mean(residuals(lm.fifth)^2))
 s.fifth <- summary(lm.fifth)
 s.fifth$adj.r.squared
 ```
 
-## STIG 4A: HELDUR LÍNULEIKI? GRUNNSKOÐUN
+Þá er líkan með `r sqrt(mean(residuals(lm.fifth)^2))` í RMSE og `r s.fifth$adj.r.squared` í aðlagað $R^2$. 
 
-Byrjum á að skoða eitt mikilvægasta plottið, leifð á móti spá.
+## 4. Grunnskoðun á línuleika
+
+Byrjum á að skoða eitt mikilvægasta plottið, leifð á móti spágildi.
 
 ``` {r}
 fortData <- fortify(lm.fifth)
@@ -239,7 +239,7 @@ fortData %>%
   ggplot(aes(x = .fitted, y = .resid, color = matssvaedi, shape = teg_eign)) +
   geom_jitter(width = 0.25)
 ```
-Hér er augljóslega tilfelli af hederoskedaticity, þ.e. leifðin eykst með hærra spágildi.Við ættum að geta séð þetta vel líka með QQ-plotti af leifðinni:
+Hér er augljóslega tilfelli af hederoskedaticity, þ.e. leifðin eykst með hærra spágildi. Við ættum að geta séð þetta vel líka með QQ-plotti af leifðinni:
 
 ``` {r}
 tibble(Normal = fortData$.stdresid) %>%
@@ -249,241 +249,7 @@ tibble(Normal = fortData$.stdresid) %>%
   geom_abline(slope = 1, intercept = 0, lty = 2, col = 'blue')
 ```
 
-Gögnin halda að miklu leyti í við y = x línuna en þó er einn punktur alveg kú-kú og tilhneigingin er samhverf sem bendir til þess að hér sé eitthvað annað en línulegt í gangi. 
+Gögnin halda að miklu leyti í við y = x línuna en þó er einn punktur alveg kú-kú og tilhneigingin á báðum endum er samhverf sem bendir til þess að hér sé eitthvað annað en línulegt í gangi. 
 
-Af þessu tvennu að ofan drögum við þá ályktun að líklegt sé að við viljum umbreyta y (XX skýribreyta? man ekki orðin). Réttast er þó að skoða fyrst útlaga og áhrifamikla punkta vegna þess að BoxCox og aðrar aðferðir eru sérstaklega næmar fyrir slíku.
-
-
-## STIG 5: ÚTLAGAR OG MIKILVÆGIR PUNKTAR
-
-Greinum nú x-punkta með Mahalanobis/H_ii gildum:
-Skoðum matið okkar á y (y.hat) 
-``` {r}
-fortData$rn <- row.names(fortData)
-fortData$index <- 1:nrow(fortData)
-fortData$.jackknife <- rstudent(lm.fifth)
-n <- nrow(fortData)
-p <- nrow(summary(lm.fifth)$coefficients)
-
-fortData %>%
-  ggplot(aes(x = index, y = .hat)) +
-  geom_point() +
-  geom_hline(yintercept = 2*p/n, lty = 2, col = 'red') +
-  geom_text(aes(label = ifelse(.hat > 2*p/n, rn, '')), hjust = 0.5, vjust = -0.5)
-
-# Þetta er bara rugl að skoða, við þurfum að finna betri leið... Notum töflu:
-
-fortData %>%
-  filter(.hat > 2*p/n) %>%
-  arrange(desc(.hat)) %>%
-  dplyr::select(rn, .hat) %>%
-  kbl(align = 'c') %>%
-  kable_styling()
-```
-Byrjum á því að greina y-punkta með jackknife og Cook's distance:
-
-``` {r}
-fortData %>%
-  dplyr::select(.jackknife, rn, index) %>%
-  gather(residual, jackknife, -index, -rn) %>%
-  mutate(residual = factor(residual, 
-                           levels = c('.jackknife'))) %>%
-  ggplot(aes(x = index, y = jackknife, label=rn)) +
-  geom_point(aes(color = ifelse(abs(jackknife)>2, "darkred", "black"))) +
-  geom_text(aes(label=ifelse(abs(jackknife)>2,rn,'')),hjust=0.5,vjust=-0.5) +
-  geom_hline(yintercept = 0, lty = 2, col = 'red') +
-  theme(legend.position="none",
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank()) +
-  geom_hline(yintercept = 1, lty = 2, col = 'blue') +
-  geom_hline(yintercept = -1, lty = 2, col = 'blue') +
-  geom_hline(yintercept = 2, lty = 2, col = 'red') +
-  geom_hline(yintercept = -2, lty = 2, col = 'red') +
-  geom_hline(yintercept = 3, lty = 2, col = 'green') +
-  geom_hline(yintercept = -3, lty = 2, col = 'green') +
-  geom_hline(yintercept = 0, lty = 2) + expand_limits(x = c(0, 282))
-
-alpha <- 0.05
-tCrit <- qt(p = 1 - alpha/(2 * n), n - p - 1)
-outliers = fortData$rn[c(which(abs(fortData$.jackknife) > tCrit))]
-
-fortData %>%
-  ggplot(aes(x = index, y = .cooksd, label=rn)) +
-  geom_point(aes(color = ifelse(.cooksd>0.1, "darkred", "black"))) +
-  geom_text(aes(label=ifelse(.cooksd>0.1,rn,'')),hjust=-0.1,vjust=0.2) +
-  theme(legend.position="none",
-        axis.text.x=element_blank(),
-        axis.ticks.x=element_blank())
-
-theoreticalT <- qt(p = 1 - 0.05/(2 * n), df = n - p - 1)
-suspicious <- c(25036, 23907, 21791, 18612, 34066, 11182, 8494, 4216)
-fortData %>%
-  filter(rn %in% suspicious) %>%
-  mutate(highLeverage = .hat > 2*p/n,
-         outlier = abs(.jackknife) > theoreticalT,
-         influential = .cooksd > 0.15) %>%
-  dplyr::select(rn, highLeverage, outlier, influential) %>%
-  mutate(totalMarks = highLeverage + outlier + influential) %>%
-  kbl(align = 'c') %>%
-  kable_styling()
-
-possible_rejects = c(23907, 25036, 18612)
-
-fortData[fortData$rn %in% possible_rejects,] %>%
-  kbl(align = 'c') %>%
-  kable_styling()
-```
-
-Athugum að einn punktur er allt í senn útlagi, áhrifavaldur og veigamikill. Þegar hann er skoðaður þá sést að þessi fasteign er langdýrust allra.
-
-``` {r}
-summary(data$nuvirdi)
-hist(data$nuvirdi)
-```
-
-Við ákváðum því að taka þann punkt út.
-
-Hinir tveir eru metnir á miklu hærra verð en þeir ættu að vera. Báðir liggja við
-Ægissíðu og eru metnir á verð sem kemur heim og saman við aðrar eignir þar:
-
-``` {r}
-summary(data[data$matssvaedi == 70,]$nuvirdi)
-hist(data[data$matssvaedi == 70,]$nuvirdi)
-```
-
-Þessar eignir virðast vera aðeins yfir meðalvirði miðað við fermetrafjölda en annars eðlilegar eignir og vel innan marka. Það er ekki réttlætanlegt að henda þeim út þar sem líkanið okkar ætti að geta spáð fyrir þeim. Við viljum lagfæra þessa spá, ekki sópa henni undir teppið!
-
-``` {r}
-td6 <- td5[td5$id != 25036,]
-```
-
-## STIG 4B: HELDUR LÍNULEIKI? UMBREYTINGAR
-
-Umbreytum y út frá BoxCox og skoðum lambda gildið
-
-```{r}
-bcTest <- boxcox(lm( nuvirdi ~ ., td6))
-
-indexOfLLPeak <- which.max(bcTest$y)
-lambda <- bcTest$x[indexOfLLPeak]
-lambda
-```
-
-Lambda er langt fyrir neðan 5 sem er góðs viti. Við athugun á endurtekna mynstri aukastafanna kemur í ljós að lambda er líklegast nákvæmlega $26/99$.
-
-
-``` {r}
-td6$logy <- bxcx(td6$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
-lm.sixth = lm(logy ~ . -nuvirdi, data = td6)
-s.sixth <- summary(lm.sixth)
-
-fortLogy = fortify(lm.sixth)
-# Sjáum að logy hegðar sér betur (meira línulega) en venjulega núvirðið:
-# (sameina á eitt plott með facet wrap eða eitthvað)
-fortLogy%>% ggplot(aes(x = logy)) +
-  geom_density()
-
-fortLogy %>% ggplot(aes(x = nuvirdi)) +
-  geom_density()
-
-asd <- bxcx(residuals(lm.fifth), lambda, InverseQ = TRUE, type = "BoxCox")
-sqrt(mean(asd^2))
-```
-
-Þetta er allt of gott til að vera satt, þurfum að skoða þetta betur....
-
-Skoðum aftur x-punkta og greinum frávik í næsta kafla
-
-``` {r}
-fortLogy$rn <- row.names(fortLogy)
-fortLogy$index <- 1:nrow(fortLogy)
-fortLogy$.jackknife <- rstudent(lm.sixth)
-n5 <- nrow(fortLogy)
-p5 <- nrow(summary(lm.sixth)$coefficients)
-
-betas <- c("(Intercept", "kdagur", "teg_eignIbudareign", "teg_eignParhus", "teg_eignRadhus", 
-           "byggar", "haednr", "lyftaTRUE", "ibm2", "fjbkar", "fjsturt", "fjstof", "fjgeym", 
-           "stig10", "matssvaedi70", "matssvaedi91", "matssvaedi160", "matssvaedi281", 
-           "undirmatssvaedi3", "undirmatssvaedi6", "undirmatssvaedi21", "undirmatssvaedi28", 
-           "undirmatssvaedi40", "undirmatssvaedi48", "undirmatssvaedi54", "id")
-
-beta1 <- summary(lm.fifth)$coefficients[2, 1]
-beta2 <- summary(lm.fifth)$coefficients[3, 1]
-beta3 <- summary(lm.fifth)$coefficients[4, 1]
-beta4 <- summary(lm.fifth)$coefficients[5, 1]
-beta5 <- summary(lm.fifth)$coefficients[6, 1]
-beta6 <- summary(lm.fifth)$coefficients[7, 1]
-beta7 <- summary(lm.fifth)$coefficients[8, 1]
-beta8 <- summary(lm.fifth)$coefficients[9, 1]
-beta9 <- summary(lm.fifth)$coefficients[10, 1]
-beta10 <- summary(lm.fifth)$coefficients[11, 1]
-beta11 <- summary(lm.fifth)$coefficients[12, 1]
-beta12 <- summary(lm.fifth)$coefficients[13, 1]
-beta13 <- summary(lm.fifth)$coefficients[14, 1]
-beta14 <- summary(lm.fifth)$coefficients[15, 1]
-beta15 <- summary(lm.fifth)$coefficients[16, 1]
-beta16 <- summary(lm.fifth)$coefficients[17, 1]
-beta <- c(beta1, beta2, beta3, beta4,beta5, beta6, beta7, beta8,
-          beta9, beta10, beta11, beta12,beta13, beta14, beta15, beta16)
-plots <- list()
-for(i in 1:length(beta)) {
-  regressor <-  model.matrix(lm.fifth)[, (i + 1)]
-  partialRes <- fortLogy$.resid + regressor * beta[i]
-  tibble(x = regressor,
-         y = partialRes) %>%
-    ggplot(aes(x = x, y = y)) +
-    geom_point() +
-    stat_smooth(method = 'lm', se = F) +
-    labs(x = betas[i + 1],
-         y = 'Partial residual') -> plots[[i]]
-}
-cowplot::plot_grid(plots[[1]], plots[[2]], plots[[3]], plots[[4]],
-                   plots[[5]], plots[[6]], plots[[7]], plots[[8]],
-                   plots[[9]], plots[[10]], plots[[11]], plots[[12]],
-                   plots[[13]], plots[[14]], plots[[15]], plots[[16]],
-                   nrow = 4, ncol = 4)
-cowplot::plot_grid(plots[[1]], plots[[5]], plots[[6]], plots[[8]],
-                   nrow = 2, ncol = 2)
-```
-
-
-# Sjáum smá dæmi um ólínuleika í plotti 8, sem ætti að svara til ibm2.
-# Plottin að ofan svara til kaupdags, byggingarár, hæðarnúmer og fermetrar.
-
-# Við viljum eflaust vinna meira með fermetrabreytuna...
-
-``` {r}
-lmOrthoPolyIBM2 <- lm(td6$logy ~ poly(td6$ibm2, 3))
-summary(lmOrthoPolyIBM2)
-
-summary(lm.sixth)
-
-td7 <- subset(td6, select = -c(lyfta, fjsturt))
-td7$ibm22 <- td7$ibm2^2
-# MJÖG significant, prófum samt að velja bara 2. veldi fyrst
-
-lmOrthoPolyBYGGAR <- lm(td6$logy ~ poly(td6$byggar, 3))
-summary(lmOrthoPolyBYGGAR)
-# Ekki nógu significant, eða hvað?
-
-lm.seventh <- lm(logy ~ . -nuvirdi -id, data = td7)
-summary(lm.seventh)
-
-rev_resid_7 <- bxcx(residuals(lm.seventh), lambda, InverseQ = TRUE, type = "BoxCox")
-sqrt(mean(rev_resid_7^2))
-test_data$logy <- bxcx(test_data$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
-test_data$ibm22 <- test_data$ibm2^2
-
-test_resid = (predict(lm.seventh, test_data) - test_data$logy)
-
-rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
-sqrt(mean(rev_resid_test^2))
-```
-
-
-
-
-
-
-
+Af þessu tvennu að ofan drögum við þá ályktun að líklegt sé að við viljum umbreyta y breytunni okkar. Réttast er þó að skoða fyrst útlaga og áhrifamikla punkta vegna þess að BoxCox og aðrar aðferðir eru sérstaklega næmar fyrir slíku.
 
