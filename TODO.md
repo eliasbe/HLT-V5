@@ -40,3 +40,11 @@
 9. Getum prófað að keyra STEPWISE selection á allt safnið í byrjun
     - Notum það ekki en getum haft það sem viðmið
 10. Endurtaka frá skrefi 4, skrá hjá okkur helstu upplýsingar en ekki nauðsynlegt.
+
+
+
+### Spurningar
+
+- Sleppa kaupdegi?
+- Ath, eru einhver auð gildi?
+

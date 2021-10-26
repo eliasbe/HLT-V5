@@ -121,4 +121,7 @@ fortData %>%
 #  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi)) +
 #  geom_jitter(width = 0.25)
 
-
+library(kableExtra)
+tibble("Fastanúmer íbúðar", "Kaupdagur", "Tegund eignar", "Svæðisnúmer", "Byggingarár", "Fjöldi Hæða", "Fjöldi lyfta", "Fermetrafjöldi", "Fjöldi hæða", "Fjöldi bílastæða", "Fjöldi Baðkara", "Fjöldi sturta", "Fjöldi klósetta", "Fjöldi eldhúsa", "Fjöldi herbergja", "Fjöldi stofa", "fjöldi geymsla", "Stig framkvæmdar", "Matssvæði", "Undirmatssvæði", "Tegund íbúðar") %>%
+  kbl(align = 'c') %>%
+  kable_styling()
