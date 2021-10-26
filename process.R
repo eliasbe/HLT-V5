@@ -9,6 +9,7 @@ library(GGally)
 library(knitr)
 library(kableExtra)
 library(FitAR)
+library(broom)
 set.seed(11)
 
 data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
@@ -102,7 +103,7 @@ sqrt(mean(residuals(lm.second)^2))
 hist(data$fjeld)
 hist(data$fjbilast)
 # Þau mælast líka með mjög hátt p-gildi, svo við metum það svo að þetta megi fjúka
-td3 = subset( td2, select = -c(fjeld, fjbilast) )
+td3 = subset( td2, select = -c(fjeld, fjbilast, stig10) )
 lm.third = lm(nuvirdi ~ ., data = td3)
 sqrt(mean(residuals(lm.third)^2))
 summary(lm.third)
@@ -134,19 +135,8 @@ lm.fourth = lm(nuvirdi ~ ., data = td4)
 sqrt(mean(residuals(lm.fourth)^2))
 summary(lm.fourth)
 
-td4 = subset( td3, select = -c(teg_eign))
-lm.fourth = lm(nuvirdi ~ ., data = td4)
-sqrt(mean(residuals(lm.fourth)^2))
-summary(lm.fourth)
-
 # Sjáum að -ibteg stendur sig betur en -teg_eign, svo við veljum út ibteg
 # Núna stækkar R^2 á meðan RMSE minnkar, svo þetta er gott...
-# Upp á grínið, prófum að taka hvort tveggja út og sjá hvernig það hegðar sér:
-
-td4 = subset( td3, select = -c(ibteg, undirmatssvaedi))
-lm.fourth = lm(nuvirdi ~ ., data = td4)
-sqrt(mean(residuals(lm.fourth)^2))
-summary(lm.fourth)
 
 # Ég meina, þetta er alveg sæmilegt... Miðað við hversu margt er fjarlægt,
 # þá er þetta mögulega bara leiðin fram á við...
@@ -202,11 +192,6 @@ fortData %>%
   kbl(align = 'c') %>%
   kable_styling()
 
-# Með því að skoða
-fortData[fortData$rn == 10944,]
-# sést að þessum punkti er spáð nákvæmlega rétt gildi og því er hann veigamikill.
-# Hann er sem sagt veigamikill, því hann er að spá þessu svo vel, ætti ekki að skoða
-# frekar. Aðrir gagnapunktar eru innan marka.
 
 # Byrjum á því að greina y-punkta með jackknife og Cook's distance:
 
@@ -215,7 +200,7 @@ fortData %>%
   gather(residual, jackknife, -index, -rn) %>%
   mutate(residual = factor(residual, 
                            levels = c('.jackknife'))) %>%
-  ggplot(aes(x = index, y = jackknife, , label=rn)) +
+  ggplot(aes(x = index, y = jackknife, label=rn)) +
   geom_point(aes(color = ifelse(abs(jackknife)>2, "darkred", "black"))) +
   geom_text(aes(label=ifelse(abs(jackknife)>2,rn,'')),hjust=0.5,vjust=-0.5) +
   geom_hline(yintercept = 0, lty = 2, col = 'red') +
@@ -292,20 +277,18 @@ lambda <- bcTest$x[indexOfLLPeak]
 lambda
 # Líklegast nákvæmlega 26/99
 
-fortData$logy <- bxcx(td5$logy, lambda, InverseQ = FALSE, type = "BoxCox")
-
-# Sjáum að logy hegðar sér betur (meira línulega) en venjulega núvirðið:
-# (sameina á eitt plott með facet wrap eða eitthvað)
-fortData %>% ggplot(aes(x = logy)) +
-  geom_density()
-
-fortData %>% ggplot(aes(x = nuvirdi)) +
-  geom_density()
-
 td5$logy <- bxcx(td5$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
 lm.fifth = lm(logy ~ . -nuvirdi, data = td5)
 summary(lm.fifth)
 
+fortLogy = fortify(lm.fifth)
+# Sjáum að logy hegðar sér betur (meira línulega) en venjulega núvirðið:
+# (sameina á eitt plott með facet wrap eða eitthvað)
+fortLogy%>% ggplot(aes(x = logy)) +
+  geom_density()
+
+fortLogy %>% ggplot(aes(x = nuvirdi)) +
+  geom_density()
 
 asd <- bxcx(residuals(lm.fifth), lambda, InverseQ = TRUE, type = "BoxCox")
 sqrt(mean(asd^2))
@@ -313,8 +296,6 @@ sqrt(mean(asd^2))
 # Þetta er allt of gott til að vera satt, þurfum að skoða þetta betur....
 
 # Skoðum aftur x-punkta og greinum frávik í næsta kafla
-
-fortLogy = fortify(lm.fifth)
 
 fortLogy$rn <- row.names(fortLogy)
 fortLogy$index <- 1:nrow(fortLogy)
@@ -374,6 +355,8 @@ cowplot::plot_grid(plots[[1]], plots[[5]], plots[[6]], plots[[8]],
 lmOrthoPolyIBM2 <- lm(td5$logy ~ poly(td5$ibm2, 3))
 summary(lmOrthoPolyIBM2)
 
+summary(lm.fifth)
+
 td6 <- subset(td5, select = -c(lyfta, fjsturt))
 td6$ibm22 <- td6$ibm2^2
 # MJÖG significant, prófum samt að velja bara 2. veldi fyrst
@@ -428,12 +411,6 @@ fortNG %>%
   kbl(align = 'c') %>%
   kable_styling()
 
-# Með því að skoða
-fortNG[fortNG$rn == 10944,]
-# sést að þessum punkti er spáð nákvæmlega rétt gildi og því er hann veigamikill.
-# Hann er sem sagt veigamikill, því hann er að spá þessu svo vel, ætti ekki að skoða
-# frekar. Aðrir gagnapunktar eru innan marka.
-
 # Byrjum á því að greina y-punkta með jackknife og Cook's distance:
 
 fortNG %>%
@@ -457,7 +434,7 @@ fortNG %>%
   geom_hline(yintercept = 0, lty = 2) + expand_limits(x = c(0, 282))
 
 alpha <- 0.05
-tCrit <- qt(p = 1 - alpha/(2 * n), n - p - 1)
+tCrit <- qt(p = 1 - alpha/(2 * n6), n6 - p6 - 1)
 outliers = fortNG$rn[c(which(abs(fortNG$.jackknife) > tCrit))]
 
 fortNG %>%
@@ -468,7 +445,7 @@ fortNG %>%
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank())
 
-theoreticalT <- qt(p = 1 - 0.05/(2 * n), df = n - p - 1)
+theoreticalT <- qt(p = 1 - 0.05/(2 * n6), df = n6 - p6 - 1)
 suspicious <- c(34066, 23907, 6099, 4216, 11182, 25074)
 fortNG %>%
   filter(rn %in% suspicious) %>%
@@ -495,8 +472,8 @@ summary(data[data$matssvaedi == 70,]$nuvirdi)
 hist(data[data$matssvaedi == 70,]$nuvirdi)
 
 betas2 <- c("(Intercept", "kdagur", "teg_eignIbudareign", "teg_eignParhus", "teg_eignRadhus", 
-           "byggar", "haednr", "ibm2", "fjbkar", "fjstof", "fjgeym", 
-           "stig10", "matssvaedi70", "matssvaedi91", "matssvaedi160", "matssvaedi281", 
+           "byggar", "haednr", "ibm2", "fjbkar", "fjstof", "fjgeym", "matssvaedi70", 
+           "matssvaedi91", "matssvaedi160", "matssvaedi281", 
            "undirmatssvaedi3", "undirmatssvaedi6", "undirmatssvaedi21", "undirmatssvaedi28", 
            "undirmatssvaedi40", "undirmatssvaedi48", "undirmatssvaedi54", "ibm22")
 
@@ -522,10 +499,9 @@ beta19 <- summary(lm.sixth)$coefficients[20, 1]
 beta20 <- summary(lm.sixth)$coefficients[21, 1]
 beta21 <- summary(lm.sixth)$coefficients[22, 1]
 beta22 <- summary(lm.sixth)$coefficients[23, 1]
-beta23 <- summary(lm.sixth)$coefficients[24, 1]
 beta <- c(beta1, beta2, beta3, beta4,beta5, beta6, beta7, beta8,
           beta9, beta10, beta11, beta12,beta13, beta14, beta15, beta16,
-          beta17, beta18, beta19, beta20, beta21, beta22,beta23)
+          beta17, beta18, beta19, beta20, beta21, beta22)
 plots <- list()
 for(i in 1:length(beta)) {
   regressor <-  model.matrix(lm.sixth)[, (i + 1)]
@@ -543,13 +519,57 @@ cowplot::plot_grid(plots[[1]], plots[[2]], plots[[3]], plots[[4]],
                    plots[[9]], plots[[10]], plots[[11]], plots[[12]],
                    plots[[13]], plots[[14]], plots[[15]], plots[[16]], 
                    plots[[17]], plots[[18]], plots[[19]], plots[[20]], 
-                   plots[[21]], plots[[22]], plots[[23]],
+                   plots[[21]], plots[[22]],
                    nrow = 6, ncol = 4)
-cowplot::plot_grid(plots[[1]], plots[[5]], plots[[7]], plots[[23]],
+cowplot::plot_grid(plots[[1]], plots[[5]], plots[[7]], plots[[22]],
                    nrow = 2, ncol = 2)
 
 
+cowplot::plot_grid(plots[[6]], plots[[9]], plots[[10]], plots[[8]],
+                   nrow = 2, ncol = 2)
+
+lmOrthoPolyHAEDIR <- lm(td6$logy ~ poly(td6$haednr, 3))
+summary(lmOrthoPolyHAEDIR)
+
+td7 <- subset(td6, select = -c(fjbkar))
+td7$haednr2 <- td7$haednr^2
+td7$haednr3 <- td7$haednr^3
+
+lm.seventh <- lm(logy ~ . -nuvirdi -id, data = td7)
+summary(lm.seventh)
+
+rev_resid_7 <- bxcx(residuals(lm.seventh), lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_7^2))
+test_data$logy <- bxcx(test_data$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
+test_data$ibm22 <- test_data$ibm2^2
+test_data$haednr2 <- test_data$haednr^2
+test_data$haednr3 <- test_data$haednr^3
+
+test_resid = (predict(lm.seventh, test_data) - test_data$logy)
+
+rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_test^2))
+
 ## STIG 7: Fara í ANCOVA greiningu á þeim breytum sem eru eftir inni
+
+ggplot(td7, aes(x=matssvaedi, y=logy)) + geom_boxplot()
+
+group_by(td7, matssvaedi) %>%
+  summarise(
+    count = n(),
+    mean = mean(logy, na.rm = TRUE),
+    sd = sd(logy, na.rm = TRUE)
+  ) %>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+matssv.lm <- lm(logy ~ matssvaedi, data = td7)
+tidy(summary(matssv.lm))%>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+# Spurning um að taka bara matssvæði 160 vs rest?
+
+anova(matssv.lm) %>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
 
 # Nota TukeyHSD
 # Ófullkomið
