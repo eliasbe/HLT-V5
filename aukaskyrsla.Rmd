@@ -24,6 +24,8 @@ data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T
 data_big$id <- 1:nrow(data_big)
 sublocations = c(25, 70, 91, 160, 281)
 data = data_big[data_big$matssvaedi == sublocations, ]
+
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
 ```
 
 ## Inngangur
@@ -255,7 +257,7 @@ Gögnin halda að miklu leyti í við y = x línuna en þó er einn punktur alve
 Af þessu tvennu að ofan drögum við þá ályktun að líklegt sé að við viljum umbreyta y (XX skýribreyta? man ekki orðin). Réttast er þó að skoða fyrst útlaga og áhrifamikla punkta vegna þess að BoxCox og aðrar aðferðir eru sérstaklega næmar fyrir slíku.
 
 
-## STIG 5: ÚTLAGAR OG MIKILVÆGIR PUNKTAR
+## 5. Útlagar og mikilvægir punktar
 
 Í fyrra kafla greindum við skýr merki um ólínuleika í gögnunum, bæði þegar horft var til QQ-plotts af leifðinni en einnig sást að leifðin jókst eftir því sem gildi núvirðis jókst. Við þessu er til gott ráð en það er að breyta y-breytunni okkar með falli sem gerir dreifinguna línulega.
 
@@ -330,7 +332,7 @@ fortData %>%
   kbl(align = 'c') %>%
   kable_styling()
 ```
-Punktunum voru gefin stig, eftir því hversu oft þeir lendu utan við gefin viðmið í skoðununum þremur. Enginn punktur fékk stig úr öllum þremur mælingum en þrír mældust með tvö stig. Af þeim punktum var einn sem sérstaklega skar sig út, gagnapunktur 25036. Við frekari skoðun kom í ljós að hann svarar til dýrustu fasteign í öllu gagnasettinu sem við unnum með (þ.e. innan þeirra undirsvæða sem greiningin tekur til). Sé litið til dreifingar verðs í gagnasettinu sést að þessi fasteign er langtum verðmætari en allar aðrar. Því var það svo álitið að eitthvað sérstakt væri hér í gangi. Við reyndum að komast að því hvaða fasteign þetta væri en fasteignanúmerin úr gagnasettinu eru úreld. Frá og með 8. apríl 2018 var fasteignanúmerum breytt og þau eldri sem við vinnum með ganga ekki í leit á Þjóðskrá. Út frá matssvæðinu er ljóst að eignin liggur á milli Bræðraborgarstígs og Tjarnarinnar og því er allt eins víst að um sé að ræða forsætisráðherrabústaðinn við Tjarnargötu, Skólabæ eða aðra þjóðþekkta eign. Við ákváðum því að fjarlægja punktinn, þar sem hann væri ekki lýsandi fyrir restina af gagnasettinu.
+Punktunum voru gefin stig, eftir því hversu oft þeir lentu utan við gefin viðmið í skoðununum þremur. Enginn punktur fékk stig úr öllum þremur mælingum en þrír mældust með tvö stig. Af þeim punktum var einn sem sérstaklega skar sig út, gagnapunktur 25036. Við frekari skoðun kom í ljós að hann svarar til dýrustu fasteign í öllu gagnasettinu sem við unnum með (þ.e. innan þeirra undirsvæða sem greiningin tekur til). Sé litið til dreifingar verðs í gagnasettinu sést að þessi fasteign er langtum verðmætari en allar aðrar. Því var það svo álitið að eitthvað sérstakt væri hér í gangi. Við reyndum að komast að því hvaða fasteign þetta væri en fasteignanúmerin úr gagnasettinu eru úreld. Frá og með 8. apríl 2018 var fasteignanúmerum breytt og þau eldri sem við vinnum með ganga ekki í leit á Þjóðskrá. Út frá matssvæðinu er ljóst að eignin liggur á milli Bræðraborgarstígs og Tjarnarinnar og því er allt eins víst að um sé að ræða forsætisráðherrabústaðinn við Tjarnargötu, Skólabæ eða aðra þjóðþekkta eign. Við ákváðum því að fjarlægja punktinn, þar sem hann væri ekki lýsandi fyrir restina af gagnasettinu.
 
 ``` {r}
 
@@ -350,7 +352,7 @@ hist(data[data$matssvaedi == 70,]$nuvirdi)
 td6 <- td5[td5$id != 25036,]
 ```
 
-## STIG 4B: HELDUR LÍNULEIKI? UMBREYTINGAR
+## 6. Línuleiki og umbreytingar
 
 Nú þegar gagnapunktar höfðu verið skoðaðir og einn þeirra fjarlægður, auk þess sem matið um framkvæmdarstig íbúða hafði verið fjarlægt, var talið tímabært að umbreyta núvirðisbreytunum til að fella þær betur að normaldreifingu. Almennt fall til þess að umbreyta slíku kallast BoxCox og byggir á einungis einum fasta, $\lambda$, sem hægt er að meta með innbyggðu falli í R. Fyrir óháða breytu $y$ er fallið metið sem $boxcox(y)|_{y=0} = \log(y)$ þegar $\lambda = 0$ en annars metið sem $$boxcox(y)|_{y \neq 0} = \frac{y^{\lambda} - 1}{\lambda}. $$ 
 
@@ -363,7 +365,7 @@ lambda <- bcTest$x[indexOfLLPeak]
 
 Slík greining gaf gildi $\lambda = 26/99$, sem er langt fyrir neðan 5. Í einhverjum tilvikum geta útlagar skekkt matið svo að gildi $\lambda$ verður mjög stór tala og er það varhugavert að fylgja gildum sem liggja nálægt eða yfir 5. Í þessu tilfelli virðist gildið nokkuð hóflegt. Við umbreytum því breytunni okkar eftir þessum stika og sjáum að munurinn á dreifingunni er ansi mikill, þar sem dreifingin er mun normaldreifðari eftir umbreytinguna. 
 
-```{r}
+```{r out.width="50%"}
 par(mfrow = c(1,2))
 td6$logy <- bxcx(td6$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
 
@@ -384,10 +386,10 @@ resid_sixth <- bxcx(residuals(lm.sixth), lambda, InverseQ = TRUE, type = "BoxCox
 
 ```
 
-Að þessu loknu er réttast að skoða grunnmódelið aftur og kanna hvernig skekkjunni ber saman við gildið áður. Við skiljum nú breytuna núvirði frá gögnunum, þar sem hún er ekki hluti af módelinu lengur. Við fellum módelið að gagnasettinu okkar og fáum sláandi niðurstöðu, RMSE mælist nú `r sqrt(mean(resid_sixth^2))`, sem er sláandi munur frá fyrri módelum. Við viðurkennum það að það runnu á okkur tvær grímur þegar þessar niðurstöður bárust; annars vegar gleði yfir því að módelið stæði sig svona miklu betur eftir þessa umbreytingu og hins vegar kvíði yfir því að þessar niðurstöður væru tortryggilegar. Frekari rýni leiddi hins vegar ekkert varhugavert í ljós, svo við héldum áfram að reyna að betrumbæta forritið ennþá frekar.
+Að þessu loknu er réttast að skoða grunnmódelið aftur og kanna hvernig skekkjunni ber saman við gildið áður. Við skiljum nú breytuna núvirði frá gögnunum, þar sem hún er ekki hluti af módelinu lengur. Við fellum módelið að gagnasettinu okkar og fáum sláandi niðurstöðu, RMSE mælist nú `r sqrt(mean(resid_sixth^2))`, sem er sláandi munur frá fyrri módelum. Við viðurkennum að það runnu á okkur tvær grímur þegar þessar niðurstöður bárust; annars vegar gleði yfir því að módelið stæði sig svona miklu betur eftir þessa umbreytingu og hins vegar kvíði yfir því að þessar niðurstöður væru tortryggilegar. Frekari rýni leiddi hins vegar ekkert varhugavert í ljós, svo við héldum áfram að reyna að betrumbæta líkanið ennþá frekar.
 
 
-## Kafli 5: Varpanir skýribreyta
+## 7. Varpanir skýribreyta
 
 Næst var litið til skýribreytanna en vera má að samband þeirra við óháðu breytuna sé ekki línulegt. Að neðan má sjá þrjár samfelldar breytur og eina ósamfellda en hún lýsir því á hvaða hæð í húsinu fasteignin er. Í þeirri ósamfelldu má greina nokkra ölduhreyfingu, þar sem fasteignir á miðjuhæðum virðast almennt vera dýrari en þær á grunnhæð eða ofar en fjórða hæð. Þessi alda gefur til kynna ólínulegt samband milli hæðar og fasteignamats, sem einföld lína fangar ekki almennilega. Sömu sögu er að segja um fermetrana en þar er tilhneiging hallatölunnar að minnka jafnt og þétt eftir því sem fermetrar aukast. Þar sem hreyfingin þar er einsleit er líklegt að stuðlar í öðru veldi geti náð utan um þessa breytinguna en í tilfelli ölduhreyfingarinnar fyrir hæðina er líklegra að þriðja veldi breytunnar geti náð utan um hegðun hennar.
 
@@ -434,11 +436,11 @@ Við ákváðum einnig að fjarlægja breytuna fyrir sturtu í íbúðunum, þar
 
 ```{r}
 lmOrthoPolyIBM2 <- lm(td6$logy ~ poly(td6$ibm2, 3))
-summary(lmOrthoPolyIBM2)
+s.orthopolyIBM2 <- summary(lmOrthoPolyIBM2)
 lmOrthoPolyHAEDIR <- lm(td6$logy ~ poly(td6$haednr, 3))
-summary(lmOrthoPolyHAEDIR)
+s.orthopolyHAEDIR <- summary(lmOrthoPolyHAEDIR)
 
-summary(lm.sixth)
+s.sixth <- summary(lm.sixth)
 
 td7 <- subset(td6, select = -c(fjsturt))
 td7$ibm22 <- td7$ibm2^2
@@ -446,7 +448,7 @@ td7$haednr2 <- td7$haednr^2
 td7$haednr3 <- td7$haednr^3
 
 lm.seventh <- lm(logy ~ . -nuvirdi -id, data = td7)
-summary(lm.seventh)
+s.seventh <- summary(lm.seventh)
 
 fortNG = fortify(lm.seventh)
 n7 <- nrow(fortNG)
@@ -480,16 +482,12 @@ cowplot::plot_grid(plots7[[1]], plots7[[2]], plots7[[3]], plots7[[4]], plots7[[5
 
 ```{r}
 rev_resid_7 <- bxcx(residuals(lm.seventh), lambda, InverseQ = TRUE, type = "BoxCox")
-sqrt(mean(rev_resid_7^2))
 test_data$logy <- bxcx(test_data$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
 test_data$ibm22 <- test_data$ibm2^2
 test_data$haednr2 <- test_data$haednr^2
 test_data$haednr3 <- test_data$haednr^3
-
 test_resid = (predict(lm.seventh, test_data) - test_data$logy)
-
 rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
-sqrt(mean(rev_resid_test^2))
 ```
 
 Við skoðum hvaða áhrif þetta hefur haft á líkanið okkar. RMSE á þjálfunargagnasettinu okkar mælist núna `r sqrt(mean(rev_resid_7^2))` sem er rúmur helmingur þess sem mældist áður. Nú er eðlilegt að spyrja sig hvort við séum búnir að sníða þetta líkan nákvæmlega að gagnasettinu okkar og þar með tapa almennu eðli þess sem spálíkani fyrir önnur gagnasett. Vegna þessa skiptum við gagnasetti okkar í tvennt, þar sem fjórðungur var settur til hliðar og hefur aldrei verið meðhöndlaður. Við getum gengið úr skugga um að gildi líkansins haldi með því að prófa að spá fyrir um virði fasteignanna í þessum fjórðungi út frá líkaninu okkar. Við þurfum að uppfæra efra stigs breytur um hæðir og fermetra og síðan umbreyta núvirðisbreytunni okkar með BoxCox fallinu. Við skoðum leifðina sem spáin skilur eftir og umbreytum henni til baka með andhverfu BoxCox fallsins. Niðurstaðan gefur RMSE `r sqrt(mean(rev_resid_test^2))`, sem er jafnvel lægra en á þjálfunargagnasettinu okkar. Á þessum tímapunkti runnu allar þær grímur sem eftir voru á okkur. Við vorum vissulega búnir að meðhöndla margar breytur vel og fara í gegnum sniðug greiningarferli en okkur þótti þessi villa vera mun lægri en við höfðum búist við. Að því sögðu, þá fundum við ekkert sem benti til þess að við værum óafvitandi með einhver brögð í tafli, svo við héldum áfram að þróa líkanið.
@@ -503,7 +501,8 @@ Ennþá átti eftir að skoða þær breytur líkansins sem ekki voru tölulegar
 Fjórar breytur eru innan flokksins um tegund eignar; parhús, raðhús, einbýlishús og íbúðareign. Fjöldanum er nokkuð misdreift milli flokka en yfir 85% eigna eru skráðar sem íbúðareign en um 1% parhús. Svona ójöfnuður milli flokka er óhentugur, þar sem fá hús í flokki parhúsa fá mikið meira vægi en húsin innan íbúðareigna. Því er æskilegt að kanna hvort hægt sé að sameina flokkana í stærri söfn, ef dreifing gagnanna gefur ástæðu til þess.
 
 ```{r}
-ggplot(td7, aes(x=teg_eign, y=logy)) + geom_boxplot() + xlab("Tegund eignar") + ylab("Núvirði (boxcox)")
+ggplot(td7, aes(x=teg_eign, y=logy)) + geom_boxplot() + 
+  xlab("Tegund eignar") + ylab("Núvirði (boxcox)")
 
 fit.teg_eign_check <- aov(logy ~ teg_eign, data = td7)
 tukeyteg_eign_check <- TukeyHSD(fit.teg_eign_check)
@@ -550,7 +549,8 @@ Við sjáum að þessi samanburður er ekki eins skýr og sá fyrri en helst er 
 Síðasta flokkunarfræðilega breytan tekur til sérstakra undirsvæða innan hvers matsvæðis, þar sem ástæða er talin til að gera sérstaklega greinarmun á íbúðum á undirmatssvæðinu og annarra nærliggjandi fasteigna. Svæðin eru alls 8 og samspil þeirra því ansi flókið.
 
 ```{r}
-ggplot(td7, aes(x=undirmatssvaedi, y=logy)) + geom_boxplot() + xlab("Undirmatssvæði") + ylab("Núvirði (boxcox)")
+ggplot(td7, aes(x=undirmatssvaedi, y=logy)) + geom_boxplot() + 
+  xlab("Undirmatssvæði") + ylab("Núvirði (boxcox)")
 fit.undirmatssvaedi_check <- aov(logy ~ undirmatssvaedi, data = td7)
 tukeyundirmatssvaedi_check <- TukeyHSD(fit.undirmatssvaedi_check)
 
@@ -576,17 +576,13 @@ Við sjáum að mörg sterk samspil myndast hér, einkum og sér í lagi milli u
 
 Á lokametrunum fórum við yfir þær breytur sem líkanið okkar innihélt enn og sáum þá að baðkarsþátturinn virtist ekki skila miklu til lokaniðurstöðunnar. Samspil skýribreytanna þróast eftir því sem einhverjar detta út og aðrar taka breytingum og því má vera að baðkarsbreytan hafi endað sem línuleg samantekt annarra þátta sem komu fram á öðrum stöðum í líkaninu. Við ákváðum því að fella þá breytu út úr líkaninu undir lokin.
 
-```{r}
+```{r warnings = FALSE, message=FALSE}
 td8 <- subset(td7, select = -c(fjbkar))
 
 lm.eigth <- lm(logy ~ . -nuvirdi -id, data = td8)
 rev_resid_8 <- bxcx(residuals(lm.eigth), lambda, InverseQ = TRUE, type = "BoxCox")
-sqrt(mean(rev_resid_8^2))
-
 test_resid2 = (predict(lm.eigth, test_data) - test_data$logy)
-
 rev_resid_test2 <- bxcx(test_resid2, lambda, InverseQ = TRUE, type = "BoxCox")
-sqrt(mean(rev_resid_test2^2))
 ```
 
 Lokalíkanið mældist með RMSE `r sqrt(mean(rev_resid_8^2))` á þjálfunarsetti og RMSE `r sqrt(mean(rev_resid_test2^2))` á prófunarsetti. 
