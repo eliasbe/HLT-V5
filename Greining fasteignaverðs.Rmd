@@ -1,6 +1,6 @@
 ---
 title: "Greining fasteignaverðs"
-author: "Elías Bjartur Einarsson (ebe19) og Þórhallur Auður Helgason (thh14)"
+author: "Elías Bjartur Einarsson (ebe19) og Þórhallur Auður Helgason (thh114)"
 date: "21/10/2021"
 output: pdf_document
 ---
@@ -26,7 +26,7 @@ data = data_big[data_big$matssvaedi == sublocations, ]
 
 Í þessu verkefni er markmið okkar að skapa líkan sem nálgar fasteignamat ákveðinna svæða Reykjavíkur að gefnum upplýsingum um fasteignir. Við lýsum því hér hvaða skref við tókum í líkanasmíðinni, hvernig við völdum breytur, mátum gæði líkans og bárum saman líkön sem komu til greina. XXvalidate
 
-Gögnin sem unnið var með voru fasteignamat eigna fyrir árið 2017, unnið árið 2016. Einungis var notast við gögn sem vörðuðu fimm svæði innan Reykjavíkur; miðbæ frá Bræðraborgarstíg að Tjörn, Melar að sjó, Háaleiti og skeifan, Hólar og Berg í Breiðholti og loks Réttarholt. Af þessum svæðum voru í heildina 433 fasteignir með 21 breytum auk núvirðis. Breyturnar voru eftirfarandi: Fastanúmer íbúðar, Kaupdagur, Tegund eignar, Svæðisnúmer, Byggingarár, Hæð íbúðar, Fjöldi lyfta, Fermetrafjöldi, Fjöldi hæða, Fjöldi bílastæða, Fjöldi baðkara, Fjöldi sturta, Fjöldi klósetta, Fjöldi eldhúsa, Fjöldi herbergja, Fjöldi stofa, Fjöldi geymsla, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar.
+Gögnin sem unnið var með voru fasteignamat eigna fyrir árið 2017, unnið árið 2016. Einungis var notast við gagnapunkta af fimm svæðum innan Reykjavíkur sem sjá má á korti hér að neðan; miðbæ frá Bræðraborgarstíg að Tjörn, Melar að sjó, Háaleiti og skeifan, Hólar og Berg í Breiðholti og loks Réttarholt. Á þessum svæðum voru í heildina 433 fasteignir með 21 breytum auk núvirðis. Breyturnar voru eftirfarandi: Fastanúmer íbúðar, Kaupdagur, Tegund eignar, Svæðisnúmer, Byggingarár, Hæð íbúðar, Fjöldi lyfta, Fermetrafjöldi, Fjöldi hæða, Fjöldi bílastæða, Fjöldi baðkara, Fjöldi sturta, Fjöldi klósetta, Fjöldi eldhúsa, Fjöldi herbergja, Fjöldi stofa, Fjöldi geymsla, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar.
 
 Þær breytur sem ekki segja sig sjálfar eru; Tegund eignar, Svæðisnúmer, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar. Tegund eignar skiptist í fjóra flokka; Einbýlishús, parhús, íbúð og raðhús. Tegund íbúðar aðgreinir sérbýlishús frá fjölbýlishúsum. Svæðisnúmer er auðkenni sveitarfélags. Stig framkvæmdar er skali upp á 10 sem metur hvort húsnæðið sé tilbúið. Matssvæði eru hverfin sem sjást á myndinni hér að neðan og undirmatssvæði eru ákveðin svæði innan þeirra.
 
@@ -39,14 +39,19 @@ tibble("Fastanúmer íbúðar", "Kaupdagur", "Tegund eignar", "Svæðisnúmer", 
 
 ![Svæði sem skoðuð voru eru rauðmerkt og nr. 70, 25, 91, 281 og 160.](./matssvaedi_hofudborg crop.jpg)
 
-Til að byrja með skoðuðum við gögnin, meðaltöl, há- og lággildi ásamt því að umbreyta þeim yfir á rétt snið, svo sem dagsetningum og flokkunarbreytum.
+Til að byrja með skoðuðum við gögnin, meðaltöl, há- og lággildi ásamt því að umbreyta þeim yfir á rétt snið, svo sem kaupdegi yfir á dagsetningaform og flokkunarbreytum yfir å viðeigandi form. 
 
-Við fjarlægjum fastanúmer sem breytu þar sem hún er einungis auðkenni fasteignar og inniheldur ekki upplýsingar um hana. Sömuleiðis fjarlægjum við svæðisnúmerið þar sem allar breyturnar deila svæðisnúmeri Reykjavíkur.
+Við fjarlægjum strax fastanúmer sem breytu þar sem hún er einungis auðkenni fasteignar og inniheldur ekki upplýsingar um hana. Sömuleiðis fjarlægjum við svæðisnúmerið þar sem allar breyturnar deila svæðisnúmeri Reykjavíkur og veitir þar með engar upplýsingar um gagnapunktana.
 
 
 ```{r}
 # Fjarlægjum breytur sem augljóslega skipta ekki máli:
 data <- subset( data, select = -c(svfn,rfastnum) )
+
+# Athugum hvort auð gildi séu til staðar
+if (sum(apply(data,2,is.nan))){
+  print("Athuga auð gildi")
+}
 
 # Skilgreinum tegundir breyta:
 data[ ,"kdagur"] <- as.Date(data[ ,"kdagur"]) # Kaupdagur sem dagsetning
@@ -64,15 +69,19 @@ summary(data[numericNames]) %>%
 
 # library(table1)
 # table1::table1(~., data[numericNames])
+# Þessi er flottari en það vantar kvantíla
   
 ```
 
 
 
 
-Við skiptum gagnasafninu okkar í þjálfunar- og prófunarsafn með 75% gagnapunkta í því fyrrnefnda.
+Við skiptum gagnasafninu okkar í þjálfunar- og prófunarsafn með 75% gagnapunkta í því fyrrnefnda og fjórðung í því síðarnefnda.
 
-Við erum þá tilbúnir að máta fyrsta líkanið okkar og greina það.
+## Fyrsta líkan
+
+Að svo stöddu erum við tilbúnir að máta fyrsta líkanið okkar og greina það. Í fyrstu mátum við núvirði við allar þær breytur sem eftir standa.
+
 ``` {r}
 # Splittum datasetti í þjálfun og prófun:
 sizeTraining = floor(0.75 * nrow(data))
@@ -87,11 +96,9 @@ s.first = summary(lm.first)
 
 Þessi fyrsta tilraun til að máta gögnin sýnir okkur við hverju má búast, hvaða breytur spila ekki lykilhlutverk og 
 
-Þetta líkan fær `r sqrt(mean(residuals(lm.first)^2))` í RMSE og `r s.first$adj.r.squared$` í aðlagað $R^2$. 
+Þetta líkan fær `r sqrt(mean(residuals(lm.first)^2))` í RMSE og `r s.first$adj.r.squared` í aðlagað $R^2$. 
 
-``` {r}
-
-
+``` {r include = FALSE}
 test_resid = (predict(lm.first, test_data) - test_data$nuvirdi)
 ```
 Er við skoðum spágildi líkansins út frá prófunargagnasetti fæst `r sqrt(mean(test_resid^2))` í RMSE.
@@ -107,7 +114,14 @@ sqrt(mean(residuals(lm.simple)^2))
 
 Við sjáum að það fær hærra RMSE en fyrsta líkanið okkar. 
 
+``` {r include = FALSE}
+test_resid_simple = (predict(lm.simple, test_data) - test_data$nuvirdi)
+```
+Þetta einfalda líkan fær `r sqrt(mean(test_resid_simple^2))` í RMSE á prófunarsetti, lægra en á þjálfunarsafni en hvort tveggja mjög hátt.
 
+## Hvað við tökum út og hvers vegna
+
+Byrjum á að breyta breytunni fjölda lyfta í tvíundarbreytu sem segir til um hvort það sé lyfta eður ei. Skoðum svo hvaða breytur eru línulega háðar og mega missa sín.
 ```{r}
 
 # Flestar fasteignir hafa ekki lyftu og örfáar hafa fleiri en eina. Við ákváðum að breyta þeirri breytu í tvíundarbreytu, lyfta eður ei, satt eða ósatt.
@@ -117,43 +131,166 @@ data[ ,"lyfta"] <- data[,"lyfta"]>0
 library(gplots)
 heatmap.2(cor(data[numericNames])) 
 # Sjáum cluster af hópum sem eru mjög líkir. Skoðum eigingildi:
-X <- model.matrix(lm(nuvirdi ~ ., data[,nums]))
+X <- model.matrix(lm(nuvirdi ~ ., data[numericNames]))
 eigenX <- eigen(t(X) %*% X)
 condNumber <- max(eigenX$values)/min(eigenX$values)
 condNumber
-# Risastór ástandstala fyrir fylkið, skoðum eiginvigra með lág eigingildi
+``` 
+
+Hér sést að það eru hópur af breytum sem sýna mikla fylgni hvor við aðra og við skoðun á eiginfylkjum XX sést að ástandstalan fyrir fylkið er gríðarhá og greinilegt að eitthvað sé á seyði hér. Við skoðum því eiginvigra með sérlega lág eigingildi.
+
+
+``` {r}
 eigenX$values
 # Sjáum að eigingildi 14 er pínkulítið
 eigenX$vectors[, 14]
-colnames(data[,nums])[c(4, 5, 9, 11, 12)]
+colnames(data[numericNames])[c(4, 5, 9, 11, 12)]
 sum(eigenX$vectors[c(4, 5, 9, 11, 12), 14])
 sum(eigenX$vectors[,14])
 plot(eigenX$vectors[c(4, 5, 9, 11, 12),14])
 bad_actors <- eigenX$vectors[c(4, 5, 9, 11, 12), 14]
 sum(bad_actors[c(1,5)]) - sum(bad_actors[c(2,3,4)])
-# Sjáum að ibm2 og fjstof tjá nokkurn veginn sömu upplýsingar og hinar
-# -> niðurstaða, taka út fjherb, fjlkos, fjhaed
+```
 
+Við sjáum að fermetrafjöldi og fjöldi stofa tjá nokkurn veginn sömu upplýsingar og fjöldi herbergja, klósetta og hæða. Við ákveðum því að taka þrjár síðarnefndu út. Þegar við skoðum líkanið sem út úr því kemur sést að RMSE hækkar en aðlagað $R^2$ gerir það sömuleiðis að örlitlu leyti. 
+
+``` {r include = FALSE}
 # Tökum þessa þætti út og skoðum aftur módelið:
 td2 = subset( train_data, select = -c(fjherb, fjklos, fjhaed) )
 lm.second = lm(nuvirdi ~ ., data = td2)
 
 # Fáum stærra RMSE en örlítið hærra R^2 adjusted...
-summary(lm.first)
-summary(lm.second)
-sqrt(mean(residuals(lm.first)^2))
-sqrt(mean(residuals(lm.second)^2))
+s.second <- summary(lm.second)
+#sqrt(mean(residuals(lm.first)^2))
+#sqrt(mean(residuals(lm.second)^2))
 # Gætum gert F prófs samanburð hérna, skoða glósur...
+```
 
-# Sjáum samt að fjbilast og fjeld eru nokkurn veginn eins fyrir alla punkta:
-hist(data$fjeld)
-hist(data$fjbilast)
-# Þau mælast líka með mjög hátt p-gildi, svo við metum það svo að þetta megi fjúka
+Athugum svo að breyturnar fyrir fjölda eldhúsa og fjölda bílastæða taka nánast sömu gildi í öllum gagnapunktum. Þar að auki eru þær með mjög há p-gildi og við metum það svo að þær megi báðar fjúka. Við það breytist RMSE lítið sem ekkert en aðlagað $R^2$ hækkar.
+
+``` {r}
+barplot(table(data$fjeld))
+barplot(table(data$fjbilast))
+```
+
+``` {r include = FALSE}
 td3 = subset( td2, select = -c(fjeld, fjbilast) )
 lm.third = lm(nuvirdi ~ ., data = td3)
-sqrt(mean(residuals(lm.third)^2))
-summary(lm.third)
+#sqrt(mean(residuals(lm.third)^2))
+s.third <- summary(lm.third)
 # Lítil sem engin breyting í RMSE en R^2 hækkar, svo þetta er gott...
-
 ```
+
+## STIG 3: GAGNAÚRVINNSLA, MINNA AUGLJÓSIR FLOKKAR FJARLÆGÐIR
+
+Athugum nú aðrar breytur þar sem ástæður til að fjarlægja þær blasa ekki jafnvel við.
+
+Við sjáum að tegund eignar og íbúðartegund kóða fyrir mjög svipuðum eiginleikum fasteignar og að parhúsarflokkurinn er sá eini í tegund eignar sem mælist með almennilega svörun, mögulega að undanskildum einbýlishúsaflokknum sem er grunnflokkurinn. Þó eru einungis 6 gagnapunktar í parhúsaflokknum og því mögulega ástæða til að fella tegund eignar inn í íbúðartegund. Skoðum hvernig gögnin liggja í þeim flokkum.
+
+``` {r}
+group_by(data, Íbuðartegund = ibteg, Eignartegund = teg_eign) %>% 
+  count() %>%
+  kbl() %>%
+  kable_styling()
+```
+Hér sést að allar íbúðartegundir nr. 12 eru eignartegundin Íbúðareign. Þó eru nokkrar íbúðareignir sem falla í flokk 11 ásamt öllum hinum tegundum.
+
+Eftir samanburð á líkönum sem tóku annars vegar íbúðartegund og eignartegund út þá var það metið svo að betra væri að taka íbúðartegund út. RMSE lækkar og $R^2$ hækkar, alveg eins og við viljum. 
+
+``` {r include = FALSE}
+td4 = subset( td3, select = -c(ibteg))
+lm.fourth = lm(nuvirdi ~ ., data = td4)
+# sqrt(mean(residuals(lm.fourth)^2))
+s.fourth <- summary(lm.fourth)
+```
+
+Önnur breyta sem mögulega er að rýra líkanið er undirmatssvæði. Skoðum hvernig gildin liggja þar.
+
+``` {r}
+group_by(data, undirmatssvaedi) %>% 
+  count() %>%
+  kbl() %>%
+  kable_styling()
+```
+
+Hér sést að langflestir punktarnir falla í undirmatssvæði 0 og að flestir flokkar innihalda einungis örfáar fasteignir.
+Einu flokkarnir sem fá lágt p-gildi eru 3 og 6, sem eru Ægissíða og Vesturbær NA við Hringbraut, 
+en einungis 7 og 4 stök falla þar undir. þar að auki virðast fjölmennustu flokkarnir, nr. 21 og 28 - Vesturberg í Breiðholti og Blokkir við Kringlumýra- og Miklubraut -,  skipta litlu máli.
+
+Ástæða til að sleppa þessum flokk í heild sinni?
+
+## STIG 4A: HELDUR LÍNULEIKI? GRUNNSKOÐUN
+
+Byrjum á að skoða eitt mikilvægasta plottið, leifð á móti spá.
+
+``` {r}
+fortData <- fortify(lm.fourth)
+fortData %>%
+  ggplot(aes(x = .fitted, y = .resid, color = matssvaedi, shape = teg_eign)) +
+  geom_jitter(width = 0.25)
+```
+Hér er augljóslega tilfelli af hederoskedaticity, þ.e. leifðin eykst með hærra spágildi.Við ættum að geta séð þetta vel líka með QQ-plotti af leifðinni:
+
+``` {r}
+tibble(Normal = fortData$.stdresid) %>%
+  gather(type, val) %>%
+  ggplot(aes(sample = val)) +
+  stat_qq() +
+  geom_abline(slope = 1, intercept = 0, lty = 2, col = 'blue')
+```
+
+Gögnin halda að miklu leyti í við y = x línuna en þó er einn punktur alveg kú-kú og tilhneigingin er samhverf sem bendir til þess að hér sé eitthvað annað en línulegt í gangi. 
+
+Af þessu tvennu að ofan drögum við þá ályktun að líklegt sé að við viljum umbreyta y (XX skýribreyta? man ekki orðin). Réttast er þó að skoða fyrst útlaga og áhrifamikla punkta vegna þess að BoxCox og aðrar aðferðir eru sérstaklega næmar fyrir slíku.
+
+
+## STIG 5: ÚTLAGAR OG MIKILVÆGIR PUNKTAR
+
+Greinum nú x-punkta með Mahalanobis/H_ii gildum:
+Skoðum matið okkar á y (y.hat) 
+``` {r}
+fortData$rn <- row.names(fortData)
+fortData$index <- 1:nrow(fortData)
+fortData$.jackknife <- rstudent(lm.fourth)
+n <- nrow(fortData)
+p <- nrow(summary(lm.fourth)$coefficients)
+
+fortData %>%
+  ggplot(aes(x = index, y = .hat)) +
+  geom_point() +
+  geom_hline(yintercept = 2*p/n, lty = 2, col = 'red') +
+  geom_text(aes(label = ifelse(.hat > 2*p/n, rn, '')), hjust = 0.5, vjust = -0.5)
+
+# Þetta er bara rugl að skoða, við þurfum að finna betri leið... Notum töflu:
+
+fortData %>%
+  filter(.hat > 2*p/n) %>%
+  arrange(desc(.hat)) %>%
+  dplyr::select(rn, .hat) %>%
+  kbl(align = 'c') %>%
+  kable_styling()
+```
+
+
+
+
+Athugum að hér er einn punktur sem virðist gríðarlega áhrifamikill. Skoðum hann.
+
+``` {r}
+fortData[fortData$rn == 10944,]
+```
+
+Það sést að þessum punkti er spáð nákvæmlega réttu gildi og því er hann veigamikill.
+Hann er sem sagt veigamikill vegna þess hve spáin var nákvæm og því ætti ekki að skoða hann
+frekar. Aðrir gagnapunktar eru innan marka.
+
+Byrjum á því að greina y-punkta með jackknife og Cook's distance:
+
+
+
+
+
+
+
+
 
