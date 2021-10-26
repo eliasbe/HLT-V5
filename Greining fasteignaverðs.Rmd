@@ -20,9 +20,6 @@ set.seed(11)
 data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
 sublocations = c(25, 70, 91, 160, 281)
 data = data_big[data_big$matssvaedi == sublocations, ]
-
-# Fjarlægjum breytur sem augljóslega skipta ekki máli:
-data <- subset( data, select = -c(svfn,rfastnum) )
 ```
 
 ## Inngangur
@@ -31,6 +28,8 @@ data <- subset( data, select = -c(svfn,rfastnum) )
 
 Gögnin sem unnið var með voru fasteignamat eigna fyrir árið 2017, unnið árið 2016. Einungis var notast við gögn sem vörðuðu fimm svæði innan Reykjavíkur; miðbæ frá Bræðraborgarstíg að Tjörn, Melar að sjó, Háaleiti og skeifan, Hólar og Berg í Breiðholti og loks Réttarholt. Af þessum svæðum voru í heildina 433 fasteignir með 21 breytum auk núvirðis. Breyturnar voru eftirfarandi: Fastanúmer íbúðar, Kaupdagur, Tegund eignar, Svæðisnúmer, Byggingarár, Hæð íbúðar, Fjöldi lyfta, Fermetrafjöldi, Fjöldi hæða, Fjöldi bílastæða, Fjöldi baðkara, Fjöldi sturta, Fjöldi klósetta, Fjöldi eldhúsa, Fjöldi herbergja, Fjöldi stofa, Fjöldi geymsla, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar.
 
+Þær breytur sem ekki segja sig sjálfar eru; Tegund eignar, Svæðisnúmer, Stig framkvæmdar, Matssvæði, Undirmatssvæði og Tegund íbúðar. Tegund eignar skiptist í fjóra flokka; Einbýlishús, parhús, íbúð og raðhús. Tegund íbúðar aðgreinir sérbýlishús frá fjölbýlishúsum. Svæðisnúmer er auðkenni sveitarfélags. Stig framkvæmdar er skali upp á 10 sem metur hvort húsnæðið sé tilbúið. Matssvæði eru hverfin sem sjást á myndinni hér að neðan og undirmatssvæði eru ákveðin svæði innan þeirra.
+
 ``` {r include=FALSE}
 # Gera fallegar
 tibble("Fastanúmer íbúðar", "Kaupdagur", "Tegund eignar", "Svæðisnúmer", "Byggingarár", "Hæð íbúðar", "Fjöldi lyfta", "Fermetrafjöldi", "Fjöldi hæða", "Fjöldi bílastæða", "Fjöldi Baðkara", "Fjöldi sturta", "Fjöldi klósetta", "Fjöldi eldhúsa", "Fjöldi herbergja", "Fjöldi stofa", "Fjöldi geymsla", "Stig framkvæmdar", "Matssvæði", "Undirmatssvæði", "Tegund íbúðar") %>%
@@ -38,19 +37,123 @@ tibble("Fastanúmer íbúðar", "Kaupdagur", "Tegund eignar", "Svæðisnúmer", 
   kable_styling()
 ```
 
-![Svæði sem skoðuð voru rauðmerkt](./matssvaedi_hofudborg crop.jpg)
+![Svæði sem skoðuð voru eru rauðmerkt og nr. 70, 25, 91, 281 og 160.](./matssvaedi_hofudborg crop.jpg)
 
+Til að byrja með skoðuðum við gögnin, meðaltöl, há- og lággildi ásamt því að umbreyta þeim yfir á rétt snið, svo sem dagsetningum og flokkunarbreytum.
 
-Tala um gagnasettið, setja kannski inn mynd af svæðinu eða eitthvað, ef við nennum. Tala um markmið, aðferðafræði 
+Við fjarlægjum fastanúmer sem breytu þar sem hún er einungis auðkenni fasteignar og inniheldur ekki upplýsingar um hana. Sömuleiðis fjarlægjum við svæðisnúmerið þar sem allar breyturnar deila svæðisnúmeri Reykjavíkur.
 
 
 ```{r}
+# Fjarlægjum breytur sem augljóslega skipta ekki máli:
+data <- subset( data, select = -c(svfn,rfastnum) )
 
+# Skilgreinum tegundir breyta:
+data[ ,"kdagur"] <- as.Date(data[ ,"kdagur"]) # Kaupdagur sem dagsetning
+data[ ,"teg_eign"] <- as.factor(data[ ,"teg_eign"]) # Tegund eignar sem flokkur
+
+data[ ,"matssvaedi"] <- as.factor(data[ ,"matssvaedi"]) # Staðsetning sem flokkur
+data[ ,"undirmatssvaedi"] <- as.factor(data[ ,"undirmatssvaedi"]) # Undirstaðsetning sem flokkur
+data[ ,"ibteg"] <- as.factor(data[ ,"ibteg"]) # Tegund íbúðar sem flokkur
+
+#nums <- unlist(lapply(data, is.numeric)) 
+numericNames <- colnames(dplyr::select(data, where(is.numeric)))
+summary(data[numericNames]) %>%
+  kbl(align = 'c', col.names = c("Núvirdi",	"Byggingarár",	"Nr. hæðar",	"Fjöldi lyfta",	"Fermetrafjöldi",	"Fjöldi hæða",	"Fjöldi bílastæða",	"Fjöldi baðkala",	"Fjöldi sturta",	"Fjöldi klósetta",	"Fjöldi eldhúsa",	"Fjöldi herbergja",	"Fjöldi stofa",	"Fjöldi geymsla",	"Stig fram"), row.names = T) %>% #c("Min", "1.Qt", "Median", "3.Qt", "Max")
+  kable_styling()
+
+# library(table1)
+# table1::table1(~., data[numericNames])
+  
 ```
 
 
 
+
+Við skiptum gagnasafninu okkar í þjálfunar- og prófunarsafn með 75% gagnapunkta í því fyrrnefnda.
+
+Við erum þá tilbúnir að máta fyrsta líkanið okkar og greina það.
+``` {r}
+# Splittum datasetti í þjálfun og prófun:
+sizeTraining = floor(0.75 * nrow(data))
+trainingSampleRowId <- sample(1:nrow(data), size = sizeTraining, replace = F)
+train_data <- data[trainingSampleRowId, ]
+test_data <- data[-trainingSampleRowId, ]
+
+# Fittum fyrsta líkan, án nokkurrar vinnslu:
+lm.first = lm(nuvirdi ~ ., data = train_data)
+s.first = summary(lm.first)
+```
+
+Þessi fyrsta tilraun til að máta gögnin sýnir okkur við hverju má búast, hvaða breytur spila ekki lykilhlutverk og 
+
+Þetta líkan fær `r sqrt(mean(residuals(lm.first)^2))` í RMSE og `r s.first$adj.r.squared$` í aðlagað $R^2$. 
+
+``` {r}
+
+
+test_resid = (predict(lm.first, test_data) - test_data$nuvirdi)
+```
+Er við skoðum spágildi líkansins út frá prófunargagnasetti fæst `r sqrt(mean(test_resid^2))` í RMSE.
+
+Skoðum til viðbótar annað grunnlíkan sem mátar núvirði eingöngu við fermetraverð. Þetta líkan mætti hugsa sem grunnviðmið parsímóníunnar.
+
+``` {r}
+# Skoðum einnig annars konar grunnlíkan, sem tekur bara mið af fermetrum:
+lm.simple <- lm(nuvirdi ~ ibm2, data = train_data)
+s.simple <- summary(lm.simple)
+sqrt(mean(residuals(lm.simple)^2))
+``` 
+
+Við sjáum að það fær hærra RMSE en fyrsta líkanið okkar. 
+
+
 ```{r}
+
+# Flestar fasteignir hafa ekki lyftu og örfáar hafa fleiri en eina. Við ákváðum að breyta þeirri breytu í tvíundarbreytu, lyfta eður ei, satt eða ósatt.
+data[ ,"lyfta"] <- data[,"lyfta"]>0
+
+# Skoðum breytur sem eru of líkar, multiple collinearity:
+library(gplots)
+heatmap.2(cor(data[numericNames])) 
+# Sjáum cluster af hópum sem eru mjög líkir. Skoðum eigingildi:
+X <- model.matrix(lm(nuvirdi ~ ., data[,nums]))
+eigenX <- eigen(t(X) %*% X)
+condNumber <- max(eigenX$values)/min(eigenX$values)
+condNumber
+# Risastór ástandstala fyrir fylkið, skoðum eiginvigra með lág eigingildi
+eigenX$values
+# Sjáum að eigingildi 14 er pínkulítið
+eigenX$vectors[, 14]
+colnames(data[,nums])[c(4, 5, 9, 11, 12)]
+sum(eigenX$vectors[c(4, 5, 9, 11, 12), 14])
+sum(eigenX$vectors[,14])
+plot(eigenX$vectors[c(4, 5, 9, 11, 12),14])
+bad_actors <- eigenX$vectors[c(4, 5, 9, 11, 12), 14]
+sum(bad_actors[c(1,5)]) - sum(bad_actors[c(2,3,4)])
+# Sjáum að ibm2 og fjstof tjá nokkurn veginn sömu upplýsingar og hinar
+# -> niðurstaða, taka út fjherb, fjlkos, fjhaed
+
+# Tökum þessa þætti út og skoðum aftur módelið:
+td2 = subset( train_data, select = -c(fjherb, fjklos, fjhaed) )
+lm.second = lm(nuvirdi ~ ., data = td2)
+
+# Fáum stærra RMSE en örlítið hærra R^2 adjusted...
+summary(lm.first)
+summary(lm.second)
+sqrt(mean(residuals(lm.first)^2))
+sqrt(mean(residuals(lm.second)^2))
+# Gætum gert F prófs samanburð hérna, skoða glósur...
+
+# Sjáum samt að fjbilast og fjeld eru nokkurn veginn eins fyrir alla punkta:
+hist(data$fjeld)
+hist(data$fjbilast)
+# Þau mælast líka með mjög hátt p-gildi, svo við metum það svo að þetta megi fjúka
+td3 = subset( td2, select = -c(fjeld, fjbilast) )
+lm.third = lm(nuvirdi ~ ., data = td3)
+sqrt(mean(residuals(lm.third)^2))
+summary(lm.third)
+# Lítil sem engin breyting í RMSE en R^2 hækkar, svo þetta er gott...
 
 ```
 
