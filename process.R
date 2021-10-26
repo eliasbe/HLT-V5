@@ -667,8 +667,6 @@ test_data$ibm22 <- test_data$ibm2^2
 test_data$haednr2 <- test_data$haednr^2
 test_data$haednr3 <- test_data$haednr^3
 
-test_data$undirmatssvaedi <- fct_collapse(test_data$undirmatssvaedi, "3/21/28" = c('3','21','28'), "6/40/48/54" = c('6','40','48','54'))
-
 test_data$matssvaedi <- fct_collapse(test_data$matssvaedi, "25/70/281" = c('25','70','281'))
 
 test_data$teg_eign <- fct_collapse(test_data$teg_eign, "Parhus/Einbyli" = c('Parhus','Einbylishus'))
@@ -678,7 +676,7 @@ test_resid = (predict(lm.eigth, test_data) - test_data$logy)
 rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
 sqrt(mean(rev_resid_test^2))
 
-group_by(td8, teg_eign) %>% count()
+group_by(td7, teg_eign) %>% count()
 
 
 ## STIG 8: Fitta lokalíkanið og skrifa allt um það (RMSE, mean etc., R^2, blablabla)
