@@ -159,11 +159,9 @@ Við sjáum að fermetrafjöldi og fjöldi stofa tjá nokkurn veginn sömu uppl�
 td2 = subset( train_data, select = -c(fjherb, fjklos, fjhaed) )
 lm.second = lm(nuvirdi ~ ., data = td2)
 
-# Fáum stærra RMSE en örlítið hærra R^2 adjusted...
 s.second <- summary(lm.second)
-#sqrt(mean(residuals(lm.first)^2))
-#sqrt(mean(residuals(lm.second)^2))
-# Gætum gert F prófs samanburð hérna, skoða glósur...
+# sqrt(mean(residuals(lm.first)^2))
+# sqrt(mean(residuals(lm.second)^2))
 ```
 
 Athugum svo að breyturnar fyrir fjölda eldhúsa og fjölda bílastæða taka nánast sömu gildi í öllum gagnapunktum. Þar að auki eru þær með mjög há p-gildi og við metum það svo að þær megi báðar fjúka. Við það breytist RMSE lítið sem ekkert en aðlagað $R^2$ hækkar.
@@ -178,8 +176,8 @@ td3 = subset( td2, select = -c(fjeld, fjbilast) )
 lm.third = lm(nuvirdi ~ ., data = td3)
 #sqrt(mean(residuals(lm.third)^2))
 s.third <- summary(lm.third)
-# Lítil sem engin breyting í RMSE en R^2 hækkar, svo þetta er gott...
 ```
+
 
 ## STIG 3: GAGNAÚRVINNSLA, MINNA AUGLJÓSIR FLOKKAR FJARLÆGÐIR
 
@@ -215,16 +213,26 @@ group_by(data, undirmatssvaedi) %>%
 
 Hér sést að langflestir punktarnir falla í undirmatssvæði 0 og að flestir flokkar innihalda einungis örfáar fasteignir.
 Einu flokkarnir sem fá lágt p-gildi eru 3 og 6, sem eru Ægissíða og Vesturbær NA við Hringbraut, 
-en einungis 7 og 4 stök falla þar undir. þar að auki virðast fjölmennustu flokkarnir, nr. 21 og 28 - Vesturberg í Breiðholti og Blokkir við Kringlumýra- og Miklubraut -,  skipta litlu máli.
+en einungis 7 og 4 stök falla þar undir. þar að auki virðast fjölmennustu flokkarnir, nr. 21 og 28 - Vesturberg í Breiðholti og Blokkir við Kringlumýra- og Miklubraut -,  skipta litlu máli. Á hinn bóginn þá innihalda undirmatssvæði í eðli sínu færri punkta en matssvæðin og væntanlega valin af góðum ástæðum. Það er eitt að búa í Vesturbænum en annað að búa á Ægissíðunni með útsýni yfir hafið. Af þessum ástæðum ákváðum við að halda í þessar breytu örlítið lengur og sjá hvernig henni vegnar í síðari greiningu á líkönunum.
 
-Ástæða til að sleppa þessum flokk í heild sinni?
+Síðar kom í ljós, eftir að veigamiklir punktar voru skoðaðir, að punktur 10944 var óeðlilega áhrifamikill sökum þess að eini breytileikinn í framkvæmdarstigsbreytunni kom frá honum. Allir punktar höfðu gildi 10 í þeirri breytu nema þessi eini. Af þeim völdum fjarlægðum við þá breytu úr líkaninu. 
+
+``` {r}
+barplot(table(data$stig10))
+
+td5 = subset(td4, select = -stig10 )
+lm.fifth = lm(nuvirdi ~ ., data = td5)
+sqrt(mean(residuals(lm.fifth)^2))
+s.fifth <- summary(lm.fifth)
+s.fifth$adj.r.squared
+```
 
 ## STIG 4A: HELDUR LÍNULEIKI? GRUNNSKOÐUN
 
 Byrjum á að skoða eitt mikilvægasta plottið, leifð á móti spá.
 
 ``` {r}
-fortData <- fortify(lm.fourth)
+fortData <- fortify(lm.fifth)
 fortData %>%
   ggplot(aes(x = .fitted, y = .resid, color = matssvaedi, shape = teg_eign)) +
   geom_jitter(width = 0.25)
@@ -251,9 +259,9 @@ Skoðum matið okkar á y (y.hat)
 ``` {r}
 fortData$rn <- row.names(fortData)
 fortData$index <- 1:nrow(fortData)
-fortData$.jackknife <- rstudent(lm.fourth)
+fortData$.jackknife <- rstudent(lm.fifth)
 n <- nrow(fortData)
-p <- nrow(summary(lm.fourth)$coefficients)
+p <- nrow(summary(lm.fifth)$coefficients)
 
 fortData %>%
   ggplot(aes(x = index, y = .hat)) +
@@ -270,23 +278,82 @@ fortData %>%
   kbl(align = 'c') %>%
   kable_styling()
 ```
-
-
-
-
-Athugum að hér er einn punktur sem virðist gríðarlega áhrifamikill. Skoðum hann.
-
-``` {r}
-fortData[fortData$rn == 10944,]
-```
-
-Það sést að þessum punkti er spáð nákvæmlega réttu gildi og því er hann veigamikill.
-Hann er sem sagt veigamikill vegna þess hve spáin var nákvæm og því ætti ekki að skoða hann
-frekar. Aðrir gagnapunktar eru innan marka.
-
 Byrjum á því að greina y-punkta með jackknife og Cook's distance:
 
+``` {r}
+fortData %>%
+  dplyr::select(.jackknife, rn, index) %>%
+  gather(residual, jackknife, -index, -rn) %>%
+  mutate(residual = factor(residual, 
+                           levels = c('.jackknife'))) %>%
+  ggplot(aes(x = index, y = jackknife, label=rn)) +
+  geom_point(aes(color = ifelse(abs(jackknife)>2, "darkred", "black"))) +
+  geom_text(aes(label=ifelse(abs(jackknife)>2,rn,'')),hjust=0.5,vjust=-0.5) +
+  geom_hline(yintercept = 0, lty = 2, col = 'red') +
+  theme(legend.position="none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_hline(yintercept = 1, lty = 2, col = 'blue') +
+  geom_hline(yintercept = -1, lty = 2, col = 'blue') +
+  geom_hline(yintercept = 2, lty = 2, col = 'red') +
+  geom_hline(yintercept = -2, lty = 2, col = 'red') +
+  geom_hline(yintercept = 3, lty = 2, col = 'green') +
+  geom_hline(yintercept = -3, lty = 2, col = 'green') +
+  geom_hline(yintercept = 0, lty = 2) + expand_limits(x = c(0, 282))
 
+alpha <- 0.05
+tCrit <- qt(p = 1 - alpha/(2 * n), n - p - 1)
+outliers = fortData$rn[c(which(abs(fortData$.jackknife) > tCrit))]
+
+fortData %>%
+  ggplot(aes(x = index, y = .cooksd, label=rn)) +
+  geom_point(aes(color = ifelse(.cooksd>0.1, "darkred", "black"))) +
+  geom_text(aes(label=ifelse(.cooksd>0.1,rn,'')),hjust=-0.1,vjust=0.2) +
+  theme(legend.position="none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+theoreticalT <- qt(p = 1 - 0.05/(2 * n), df = n - p - 1)
+suspicious <- c(25036, 23907, 21791, 18612, 34066, 11182, 8494, 4216)
+fortData %>%
+  filter(rn %in% suspicious) %>%
+  mutate(highLeverage = .hat > 2*p/n,
+         outlier = abs(.jackknife) > theoreticalT,
+         influential = .cooksd > 0.15) %>%
+  dplyr::select(rn, highLeverage, outlier, influential) %>%
+  mutate(totalMarks = highLeverage + outlier + influential) %>%
+  kbl(align = 'c') %>%
+  kable_styling()
+
+possible_rejects = c(23907, 25036, 18612)
+
+fortData[fortData$rn %in% possible_rejects,] %>%
+  kbl(align = 'c') %>%
+  kable_styling()
+```
+
+Athugum að einn punktur er allt í senn útlagi, áhrifavaldur og veigamikill. Þegar hann er skoðaður þá sést að þessi fasteign er langdýrust allra.
+
+``` {r}
+summary(data$nuvirdi)
+hist(data$nuvirdi)
+```
+
+Við ákváðum því að taka þann punkt út.
+
+Hinir tveir eru metnir á miklu hærra verð en þeir ættu að vera. Báðir liggja við
+Ægissíðu og eru metnir á verð sem kemur heim og saman við aðrar eignir þar:
+
+``` {r}
+summary(data[data$matssvaedi == 70,]$nuvirdi)
+hist(data[data$matssvaedi == 70,]$nuvirdi)
+```
+
+Þessar eignir virðast vera aðeins yfir meðalvirði miðað við fermetrafjölda en annars eðlilegar eignir og vel innan marka. Það er ekki réttlætanlegt að henda þeim út þar sem líkanið okkar ætti að geta spáð fyrir þeim. Við viljum lagfæra þessa spá, ekki sópa henni undir teppið!
+
+``` {r}
+td6 = td5[td5$id != 25036,]
+```
 
 
 
