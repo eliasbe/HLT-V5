@@ -31,7 +31,7 @@ inline_hook <- function(x){
   } else{
     formatted <- x
   }
-  paste0("**", formatted, "**")
+  paste0("**", formatted, "**") # gott til að spotta inline tölur, má svo taka út
 }
 knit_hooks$set(inline=inline_hook)
 
@@ -219,8 +219,9 @@ Hér sést að langflestir punktarnir falla í undirmatssvæði 0 og að flestir
 Síðar kom í ljós, eftir að veigamiklir punktar voru skoðaðir, að punktur 10944 var óeðlilega áhrifamikill og var það sökum þess að eini breytileikinn í framkvæmdarstigsbreytunni kom frá honum. Allir punktar höfðu gildi 10 í þeirri breytu nema þessi eini. Af þeim völdum fjarlægðum við þá breytu úr líkaninu. Þetta hefði mátt gerast fyrr í ferlinu.
 
 ``` {r out.width = "40%", fig.align = "center", echo = FALSE}
-barplot(table(data$stig10))
-
+barplot(table(data$stig10), main = "Framkvæmdarstig")
+```
+```{r}
 td5 = subset(td4, select = -stig10 )
 lm.fifth = lm(nuvirdi ~ ., data = td5)
 s.fifth <- summary(lm.fifth)
