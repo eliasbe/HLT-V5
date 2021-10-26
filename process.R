@@ -10,6 +10,7 @@ library(knitr)
 library(kableExtra)
 library(FitAR)
 library(broom)
+library(forcats)
 set.seed(11)
 
 data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
@@ -550,7 +551,11 @@ test_resid = (predict(lm.seventh, test_data) - test_data$logy)
 rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
 sqrt(mean(rev_resid_test^2))
 
-## STIG 7: Fara í ANCOVA greiningu á þeim breytum sem eru eftir inni
+## STIG 7: Fara í ANOVA greiningu á þeim breytum sem eru eftir inni
+
+## MATSSVÆÐI:
+
+## Bakfæra fyrir logy umbreytingu, allt saman:
 
 ggplot(td7, aes(x=matssvaedi, y=logy)) + geom_boxplot()
 
@@ -566,13 +571,115 @@ matssv.lm <- lm(logy ~ matssvaedi, data = td7)
 tidy(summary(matssv.lm))%>% kbl(align = 'c') %>%
   kable_styling(latex_options = "HOLD_position")
 
-# Spurning um að taka bara matssvæði 160 vs rest?
-
-anova(matssv.lm) %>% kbl(align = 'c') %>%
+fit.matssv <- aov(logy ~ matssvaedi, data = td7)
+tidy(fit.matssv) %>% kbl(align = 'c') %>%
   kable_styling(latex_options = "HOLD_position")
 
-# Nota TukeyHSD
-# Ófullkomið
+tukeymatssv <- TukeyHSD(fit.matssv)
+
+data.frame(tukeymatssv[1:1]) %>% kbl(align ='c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+# Möguleiki á að sameina 281-70-25 og halda 160 og 91 aðskildum
+
+## TEGUND EIGNAR:
+
+ggplot(td7, aes(x=teg_eign, y=logy)) + geom_boxplot()
+
+group_by(td7, teg_eign) %>%
+  summarise(
+    count = n(),
+    mean = bxcx(mean(logy, na.rm = TRUE), lambda, InverseQ = TRUE, type = "BoxCox"),
+    sd = bxcx(sd(logy, na.rm = TRUE), lambda, InverseQ = TRUE, type = "BoxCox")
+  ) %>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+teg_eign_check.lm <- lm(logy ~ teg_eign, data = td7)
+tidy(summary(teg_eign_check.lm))%>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+fit.teg_eign_check <- aov(logy ~ teg_eign, data = td7)
+tidy(fit.teg_eign_check) %>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+tukeyteg_eign_check <- TukeyHSD(fit.teg_eign_check)
+
+data.frame(tukeyteg_eign_check[1:1]) %>% kbl(align ='c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+# Gætum klárlega sameinað parhús og einbýlishús, út frá þessum tölum.
+
+## UNDIRMATSSVÆÐI:
+
+ggplot(td7, aes(x=undirmatssvaedi, y=logy)) + geom_boxplot()
+
+group_by(td7, undirmatssvaedi) %>%
+  summarise(
+    count = n(),
+    mean = mean(logy, na.rm = TRUE),
+    sd = sd(logy, na.rm = TRUE)
+  ) %>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+undirmatssvaedi_check.lm <- lm(logy ~ undirmatssvaedi, data = td7)
+tidy(summary(undirmatssvaedi_check.lm))%>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+fit.undirmatssvaedi_check <- aov(logy ~ undirmatssvaedi, data = td7)
+tidy(fit.undirmatssvaedi_check) %>% kbl(align = 'c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+tukeyundirmatssvaedi_check <- TukeyHSD(fit.undirmatssvaedi_check)
+
+data.frame(tukeyundirmatssvaedi_check[1:1]) %>% kbl(align ='c') %>%
+  kable_styling(latex_options = "HOLD_position")
+
+
+# 54-0 998
+# 21-3 999
+# 28-3 992
+# 40-6 9999
+# 54-6 9999
+# 28-21 999
+# 48-49 9999
+# 54-40 991
+# 54-48 999
+
+# Sameina 6-40-48-54?
+# Sameina 3-21-28?
+# 0 er stakt
+
+td8 <- td7
+         
+td8$undirmatssvaedi <- fct_collapse(td8$undirmatssvaedi, "3/21/28" = c('3','21','28'), "6/40/48/54" = c('6','40','48','54'))
+
+td8$matssvaedi <- fct_collapse(td8$matssvaedi, "25/70/281" = c('25','70','281'))
+
+td8$teg_eign <- fct_collapse(td8$teg_eign, "Parhus/Einbyli" = c('Parhus','Einbylishus'))
+
+lm.eigth <- lm(logy ~ . -nuvirdi -id, data = td8)
+summary(lm.eigth)
+
+rev_resid_8 <- bxcx(residuals(lm.eigth), lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_8^2))
+test_data$logy <- bxcx(test_data$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
+test_data$ibm22 <- test_data$ibm2^2
+test_data$haednr2 <- test_data$haednr^2
+test_data$haednr3 <- test_data$haednr^3
+
+test_data$undirmatssvaedi <- fct_collapse(test_data$undirmatssvaedi, "3/21/28" = c('3','21','28'), "6/40/48/54" = c('6','40','48','54'))
+
+test_data$matssvaedi <- fct_collapse(test_data$matssvaedi, "25/70/281" = c('25','70','281'))
+
+test_data$teg_eign <- fct_collapse(test_data$teg_eign, "Parhus/Einbyli" = c('Parhus','Einbylishus'))
+
+test_resid = (predict(lm.eigth, test_data) - test_data$logy)
+
+rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_test^2))
+
+group_by(td8, teg_eign) %>% count()
+
 
 ## STIG 8: Fitta lokalíkanið og skrifa allt um það (RMSE, mean etc., R^2, blablabla)
 
