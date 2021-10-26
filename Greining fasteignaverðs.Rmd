@@ -18,6 +18,7 @@ library(kableExtra)
 set.seed(11)
 
 data_big <- data.frame(read.table("gagnasafn_endurmat2017_litid.csv", header = T, sep = ","))
+data_big$id <- 1:nrow(data_big)
 sublocations = c(25, 70, 91, 160, 281)
 data = data_big[data_big$matssvaedi == sublocations, ]
 ```
@@ -64,8 +65,9 @@ data[ ,"ibteg"] <- as.factor(data[ ,"ibteg"]) # Tegund íbúðar sem flokkur
 #nums <- unlist(lapply(data, is.numeric)) 
 numericNames <- colnames(dplyr::select(data, where(is.numeric)))
 summary(data[numericNames]) %>%
-  kbl(align = 'c', col.names = c("Núvirdi",	"Byggingarár",	"Nr. hæðar",	"Fjöldi lyfta",	"Fermetrafjöldi",	"Fjöldi hæða",	"Fjöldi bílastæða",	"Fjöldi baðkala",	"Fjöldi sturta",	"Fjöldi klósetta",	"Fjöldi eldhúsa",	"Fjöldi herbergja",	"Fjöldi stofa",	"Fjöldi geymsla",	"Stig fram"), row.names = T) %>% #c("Min", "1.Qt", "Median", "3.Qt", "Max")
+  kbl(align = 'c', col.names = c("Núvirdi",	"Byggingarár",	"Nr. hæðar",	"Fjöldi lyfta",	"Fermetrafjöldi",	"Fjöldi hæða",	"Fjöldi bílastæða",	"Fjöldi baðkara",	"Fjöldi sturta",	"Fjöldi klósetta",	"Fjöldi eldhúsa",	"Fjöldi herbergja",	"Fjöldi stofa",	"Fjöldi geymsla",	"Stig framkvæmdar", "ID"), row.names = T) %>% #c("Min", "1.Qt", "Median", "3.Qt", "Max")
   kable_styling()
+
 
 # library(table1)
 # table1::table1(~., data[numericNames])
@@ -352,8 +354,132 @@ hist(data[data$matssvaedi == 70,]$nuvirdi)
 Þessar eignir virðast vera aðeins yfir meðalvirði miðað við fermetrafjölda en annars eðlilegar eignir og vel innan marka. Það er ekki réttlætanlegt að henda þeim út þar sem líkanið okkar ætti að geta spáð fyrir þeim. Við viljum lagfæra þessa spá, ekki sópa henni undir teppið!
 
 ``` {r}
-td6 = td5[td5$id != 25036,]
+td6 <- td5[td5$id != 25036,]
 ```
+
+## STIG 4B: HELDUR LÍNULEIKI? UMBREYTINGAR
+
+Umbreytum y út frá BoxCox og skoðum lambda gildið
+
+```{r}
+bcTest <- boxcox(lm( nuvirdi ~ ., td6))
+
+indexOfLLPeak <- which.max(bcTest$y)
+lambda <- bcTest$x[indexOfLLPeak]
+lambda
+```
+
+Lambda er langt fyrir neðan 5 sem er góðs viti. Við athugun á endurtekna mynstri aukastafanna kemur í ljós að lambda er líklegast nákvæmlega $26/99$.
+
+
+``` {r}
+td6$logy <- bxcx(td6$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
+lm.sixth = lm(logy ~ . -nuvirdi, data = td6)
+s.sixth <- summary(lm.sixth)
+
+fortLogy = fortify(lm.sixth)
+# Sjáum að logy hegðar sér betur (meira línulega) en venjulega núvirðið:
+# (sameina á eitt plott með facet wrap eða eitthvað)
+fortLogy%>% ggplot(aes(x = logy)) +
+  geom_density()
+
+fortLogy %>% ggplot(aes(x = nuvirdi)) +
+  geom_density()
+
+asd <- bxcx(residuals(lm.fifth), lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(asd^2))
+```
+
+Þetta er allt of gott til að vera satt, þurfum að skoða þetta betur....
+
+Skoðum aftur x-punkta og greinum frávik í næsta kafla
+
+``` {r}
+fortLogy$rn <- row.names(fortLogy)
+fortLogy$index <- 1:nrow(fortLogy)
+fortLogy$.jackknife <- rstudent(lm.sixth)
+n5 <- nrow(fortLogy)
+p5 <- nrow(summary(lm.sixth)$coefficients)
+
+betas <- c("(Intercept", "kdagur", "teg_eignIbudareign", "teg_eignParhus", "teg_eignRadhus", 
+           "byggar", "haednr", "lyftaTRUE", "ibm2", "fjbkar", "fjsturt", "fjstof", "fjgeym", 
+           "stig10", "matssvaedi70", "matssvaedi91", "matssvaedi160", "matssvaedi281", 
+           "undirmatssvaedi3", "undirmatssvaedi6", "undirmatssvaedi21", "undirmatssvaedi28", 
+           "undirmatssvaedi40", "undirmatssvaedi48", "undirmatssvaedi54", "id")
+
+beta1 <- summary(lm.fifth)$coefficients[2, 1]
+beta2 <- summary(lm.fifth)$coefficients[3, 1]
+beta3 <- summary(lm.fifth)$coefficients[4, 1]
+beta4 <- summary(lm.fifth)$coefficients[5, 1]
+beta5 <- summary(lm.fifth)$coefficients[6, 1]
+beta6 <- summary(lm.fifth)$coefficients[7, 1]
+beta7 <- summary(lm.fifth)$coefficients[8, 1]
+beta8 <- summary(lm.fifth)$coefficients[9, 1]
+beta9 <- summary(lm.fifth)$coefficients[10, 1]
+beta10 <- summary(lm.fifth)$coefficients[11, 1]
+beta11 <- summary(lm.fifth)$coefficients[12, 1]
+beta12 <- summary(lm.fifth)$coefficients[13, 1]
+beta13 <- summary(lm.fifth)$coefficients[14, 1]
+beta14 <- summary(lm.fifth)$coefficients[15, 1]
+beta15 <- summary(lm.fifth)$coefficients[16, 1]
+beta16 <- summary(lm.fifth)$coefficients[17, 1]
+beta <- c(beta1, beta2, beta3, beta4,beta5, beta6, beta7, beta8,
+          beta9, beta10, beta11, beta12,beta13, beta14, beta15, beta16)
+plots <- list()
+for(i in 1:length(beta)) {
+  regressor <-  model.matrix(lm.fifth)[, (i + 1)]
+  partialRes <- fortLogy$.resid + regressor * beta[i]
+  tibble(x = regressor,
+         y = partialRes) %>%
+    ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    stat_smooth(method = 'lm', se = F) +
+    labs(x = betas[i + 1],
+         y = 'Partial residual') -> plots[[i]]
+}
+cowplot::plot_grid(plots[[1]], plots[[2]], plots[[3]], plots[[4]],
+                   plots[[5]], plots[[6]], plots[[7]], plots[[8]],
+                   plots[[9]], plots[[10]], plots[[11]], plots[[12]],
+                   plots[[13]], plots[[14]], plots[[15]], plots[[16]],
+                   nrow = 4, ncol = 4)
+cowplot::plot_grid(plots[[1]], plots[[5]], plots[[6]], plots[[8]],
+                   nrow = 2, ncol = 2)
+```
+
+
+# Sjáum smá dæmi um ólínuleika í plotti 8, sem ætti að svara til ibm2.
+# Plottin að ofan svara til kaupdags, byggingarár, hæðarnúmer og fermetrar.
+
+# Við viljum eflaust vinna meira með fermetrabreytuna...
+
+``` {r}
+lmOrthoPolyIBM2 <- lm(td6$logy ~ poly(td6$ibm2, 3))
+summary(lmOrthoPolyIBM2)
+
+summary(lm.sixth)
+
+td7 <- subset(td6, select = -c(lyfta, fjsturt))
+td7$ibm22 <- td7$ibm2^2
+# MJÖG significant, prófum samt að velja bara 2. veldi fyrst
+
+lmOrthoPolyBYGGAR <- lm(td6$logy ~ poly(td6$byggar, 3))
+summary(lmOrthoPolyBYGGAR)
+# Ekki nógu significant, eða hvað?
+
+lm.seventh <- lm(logy ~ . -nuvirdi -id, data = td7)
+summary(lm.seventh)
+
+rev_resid_7 <- bxcx(residuals(lm.seventh), lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_7^2))
+test_data$logy <- bxcx(test_data$nuvirdi, lambda, InverseQ = FALSE, type = "BoxCox")
+test_data$ibm22 <- test_data$ibm2^2
+
+test_resid = (predict(lm.seventh, test_data) - test_data$logy)
+
+rev_resid_test <- bxcx(test_resid, lambda, InverseQ = TRUE, type = "BoxCox")
+sqrt(mean(rev_resid_test^2))
+```
+
 
 
 
